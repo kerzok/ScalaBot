@@ -16,6 +16,11 @@
 
 package scalabot
 
+import org.json4s.DefaultFormats
+import org.json4s.ext.EnumNameSerializer
+
+import scalabot.skype.ActivityType
+
 /**
   * Created by Nikolay.Smelik on 7/11/2016.
   */
