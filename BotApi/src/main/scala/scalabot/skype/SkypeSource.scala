@@ -21,6 +21,7 @@ import akka.http.scaladsl.server.Directives._
 import com.typesafe.config.Config
 import org.json4s.Extraction
 import org.json4s.native.JsonMethods._
+
 import scalabot.Implicits._
 import scalabot.common.ApiClient
 import scalabot.common.message.incoming.SourceMessage
@@ -33,6 +34,7 @@ import spray.http._
 import scala.concurrent.ExecutionContext.Implicits._
 import scala.concurrent.Future
 import scala.util.Try
+import scalabot.common.web.AddRoute
 
 /**
   * Created by Nikolay.Smelik on 7/11/2016.
@@ -49,8 +51,7 @@ class SkypeSource(config: Config, protected override val botRef: ActorRef) exten
       decodeRequest {
         entity(as[String]) { stringUpdate =>
           complete {
-            val updates = parse(stringUpdate).extract[Seq[skype.Update]]
-            updates foreach (update => self ! update)
+            parse(stringUpdate).extract[Seq[skype.Update]].foreach(update => self ! update)
             "Update received"
           }
         }
@@ -58,7 +59,7 @@ class SkypeSource(config: Config, protected override val botRef: ActorRef) exten
     }
   }
   }
-  botRef ! pathToWebhook
+  botRef ! AddRoute(sourceType, pathToWebhook)
 
   override def sendReply(message: outcoming.OutgoingMessage, to: common.chat.Chat): Unit = message match {
     case message: outcoming.TextMessage =>

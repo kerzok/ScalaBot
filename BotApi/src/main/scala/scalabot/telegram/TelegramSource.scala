@@ -18,8 +18,10 @@ package scalabot.telegram
 
 import akka.actor.{ActorRef, ActorSystem}
 import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.RouteResult.Rejected
 import com.typesafe.config.Config
 import org.json4s.native.JsonMethods._
+
 import scalabot.Implicits._
 import scalabot.common.ApiClient
 import scalabot.common.message.incoming.SourceMessage
@@ -30,12 +32,13 @@ import spray.http.{HttpMethod, HttpRequest, Uri}
 import scala.concurrent.ExecutionContext.Implicits._
 import scala.concurrent.Future
 import scala.util.Try
+import scalabot.common.web.AddRoute
 
 /**
   * Created by Nikolay.Smelik on 7/11/2016.
   */
 class TelegramSource(config: Config, protected override val botRef: ActorRef) extends common.Source {
-  override val id: String = Try(config.getString("id")).toOption getOrElse(throw new IllegalArgumentException("Skype id is not defined in config"))
+  override val id: String = Try(config.getString("id")).toOption getOrElse(throw new IllegalArgumentException("Telegram id is not defined in config"))
   override val sourceType: String = getClass.getSimpleName
   private val client: TelegramApiClient = TelegramApiClient(id)(context.system)
 
@@ -43,19 +46,17 @@ class TelegramSource(config: Config, protected override val botRef: ActorRef) ex
     post {
       decodeRequest {
         entity(as[String]) { stringUpdate =>
-          complete {
-            val update = parse(stringUpdate).extract[telegram.Update]
-            if (update.message.isDefined) {
-              self ! update
+            complete {
+              val update = parse(stringUpdate).extract[telegram.Update]
+              update.message.foreach(message => self ! update)
+              "Update received"
             }
-            "Update received"
-          }
         }
       }
     }
   }
   }
-  botRef ! pathToWebhook
+  botRef ! AddRoute(sourceType, pathToWebhook)
 
   protected override def sendReply(message: outcoming.OutgoingMessage, to: common.chat.Chat): Unit = message match {
     case message: outcoming.TextMessage =>

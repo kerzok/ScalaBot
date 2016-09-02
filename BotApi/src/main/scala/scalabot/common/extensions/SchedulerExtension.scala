@@ -31,7 +31,7 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
   * Created by Nikolay.Smelik on 7/25/2016.
   */
 trait SchedulerExtension extends BotExtension {
-  private[this] val scheduler = QuartzSchedulerExtension(system)
+  private[this] var scheduler = QuartzSchedulerExtension(system)
 
   final def repeatEvery(duration: Duration, intent: ScheduleIntent, startDate: Date = new Date()) = {
     duration match {
@@ -52,6 +52,11 @@ trait SchedulerExtension extends BotExtension {
         scheduler.schedule(intent.name, self, intent, Some(startDate))
       case _ => throw new UnsupportedOperationException("Duration less than minutes is unsupported")
     }
+  }
+
+  final def recreateScheduler(): Unit = {
+    scheduler.shutdown()
+    scheduler = QuartzSchedulerExtension(system)
   }
 
   final def repeat(cronExpression: String, intent: ScheduleIntent) = {

@@ -16,9 +16,10 @@
 
 package scalabot.common.web
 
-import akka.actor.{Actor, ActorRef, ActorSystem}
+import akka.actor.{Actor, ActorRef, ActorSystem, PoisonPill}
 import akka.io.IO
 import org.json4s.native.JsonMethods._
+
 import scalabot.Implicits._
 import scalabot.{common, slack}
 import spray.can.Http
@@ -67,11 +68,16 @@ case class WebSocket(sourceRef: ActorRef) extends Actor with WebSocketClientWork
 
   def send(message: String) = connection ! TextFrame(message)
 
-  def close() = connection ! CloseFrame(StatusCode.NormalClose)
+  def close() = if (connection != null) connection ! CloseFrame(StatusCode.NormalClose)
 
   private var request: HttpRequest = _
 
   override def upgradeRequest = request
+
+  @scala.throws[Exception](classOf[Exception])
+  override def postStop(): Unit = {
+    close()
+  }
 
 }
 

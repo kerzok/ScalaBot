@@ -22,6 +22,7 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import com.typesafe.config.Config
 import org.json4s.Extraction
 import org.json4s.native.JsonMethods._
+
 import scalabot.Implicits._
 import scalabot.common.ApiClient
 import scalabot.common.message.incoming.SourceMessage
@@ -43,10 +44,9 @@ class SlackSource(config: Config, override protected val botRef: ActorRef) exten
   override val id: String = Try(config.getString("id")).toOption getOrElse(throw new IllegalArgumentException("Slack id is not defined in config"))
   private[this] val counter: AtomicInteger = new AtomicInteger(0)
   private[this] val client: SlackApiClient = SlackApiClient(id)(context.system)
-  private[this] val webSocket = context.system.actorOf(Props(classOf[WebSocket], self))
+  private[this] val webSocket = context.actorOf(Props(classOf[WebSocket], self), s"${sourceType}Websocket")
   private[this] var integrationInfo: StartResponse = _
   openConnection()
-
 
   override def sendReply(message: outcoming.OutgoingMessage, to: common.chat.Chat): Unit = {
     val id = counter.incrementAndGet()

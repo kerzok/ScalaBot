@@ -16,29 +16,32 @@
 
 package scalabot.common.bot
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.{ActorLogging, ActorRef, ActorSystem, PoisonPill, Props}
 import akka.http.scaladsl.server.Route
+import akka.pattern.{Backoff, BackoffSupervisor}
 import akka.persistence.{PersistentActor, SnapshotOffer}
 import org.reflections.Reflections
+
 import scalabot.common.chat.Chat
 import scalabot.common.message._
 import scalabot.common.message.incoming.IncomingMessage
-import scalabot.common.web.{StartWebhook, Webhook}
+import scalabot.common.web.{AddRoute, StartWebhook, Webhook}
 import scalabot.common.{BotConfig, Source}
-
 import scala.collection.JavaConversions._
 import scala.collection.mutable
+import scala.concurrent.duration._
 import scala.util.Try
 
 /**
   * Created by Nikolay.Smelik on 7/22/2016.
   */
-trait AbstractBot[TData <: Data] extends PersistentActor {
+trait AbstractBot[TData <: Data] extends PersistentActor with ActorLogging {
   protected var data: TData
   protected def id: String
   implicit val system: ActorSystem = context.system
   private[this] val states: mutable.Map[Chat, Conversation] = mutable.Map.empty
   installSources()
+  log.info(s"Bot $id successfully started!")
 
   def helpMessage: String
 
@@ -67,6 +70,13 @@ trait AbstractBot[TData <: Data] extends PersistentActor {
 
   def handleCustomMessage: Receive = Map.empty
 
+  override def preRestart(reason: Throwable, message: Option[Any]): Unit = {
+    log.info(s"Bot $id is going to restart because of exception: ${reason.getMessage}")
+    saveSnapshot(data)
+    context.children.foreach(child => child ! PoisonPill)
+    super.preRestart(reason, message)
+  }
+
   private[this] def handleSystemMessage: Receive = {
     case intent: ChangeStateIntent =>
       val recipientState = states(intent.recipient)
@@ -74,9 +84,8 @@ trait AbstractBot[TData <: Data] extends PersistentActor {
       val (replyIntent, newState) = recipientState.changeState(intent)
       updateState(intent.sender, senderState(replyIntent))
       updateState(intent.recipient, newState(intent.innerIntent))
-    case route: Route =>
-      BotHelper.webhook ! route
-      BotHelper.webhook ! StartWebhook
+    case AddRoute(sourceId, route) =>
+      BotHelper.webhook ! AddRoute(id + sourceId, route)
     case SaveSnapshot => saveSnapshot(data)
   }
 
@@ -119,9 +128,9 @@ trait AbstractBot[TData <: Data] extends PersistentActor {
   }
 
   private[this] def handleBasicIntent: PartialFunction[Any, Intent] = {
-    case incoming.TextMessage(sender, text) if text.matches("""yes|yup|yeah|yep""") =>
+    case incoming.TextMessage(sender, text) if text.matches("""(y|Y)es|(y|Y)up|(y|Y)eah|(y|Y)ep""") =>
       PositiveIntent(sender)
-    case incoming.TextMessage(sender, text) if text.matches("""no|nope""") =>
+    case incoming.TextMessage(sender, text) if text.matches("""(N|n)o|(N|n)ope""") =>
       NegativeIntent(sender)
     case incoming.TextMessage(sender, text) if text.matches("""\d+""") =>
       NumberIntent(sender, text.toInt)
@@ -159,11 +168,29 @@ case object BotHelper {
   private[bot] val webhook = system.actorOf(Props(classOf[Webhook], webhookHost, webhookPort))
 
   def registerBot[T](botClass: Class[T]): ActorRef = {
-    system.actorOf(Props(botClass))
+    val botProps = Props(botClass)
+    val supervisor = BackoffSupervisor.props(
+      Backoff.onFailure(
+        botProps,
+        childName = botClass.getSimpleName,
+        minBackoff = 2 seconds,
+        maxBackoff = 20 seconds,
+        randomFactor = 0.2
+      ))
+    system.actorOf(supervisor, botClass.getSimpleName + "Supervisor")
   }
 
   def registerBot[T](botClass: Class[T], args: Any*): ActorRef = {
-    system.actorOf(Props(botClass, args))
+    val botProps = Props(botClass, args)
+    val supervisor = BackoffSupervisor.props(
+      Backoff.onFailure(
+        botProps,
+        childName = botClass.getSimpleName,
+        minBackoff = 2 seconds,
+        maxBackoff = 20 seconds,
+        randomFactor = 0.2
+      ))
+    system.actorOf(supervisor, botClass.getSimpleName + "Supervisor")
   }
 }
 

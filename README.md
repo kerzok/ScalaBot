@@ -18,7 +18,7 @@ For now it's support **Slack**, **Skype** and **Telegram** messengers.
 For the beginning you need to add dependency for your SBT project:
 
 ```scala
-libraryDependencies += "com.github.kerzok" %% "scalabotapi" % "0.1"
+libraryDependencies += "com.github.kerzok" %% "scalabotapi" % "0.2.4"
 ```
 
 Also you need to create bot on different providers:

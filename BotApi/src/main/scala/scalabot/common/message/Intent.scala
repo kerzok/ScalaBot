@@ -46,7 +46,7 @@ case class PositiveIntent(override val sender: Chat) extends Intent
 case class NegativeIntent(override val sender: Chat) extends Intent
 
 case class NumberIntent(override val sender: Chat,
-                        value: Int) extends TextIntent(sender, "")
+                        value: Int) extends TextIntent(sender, value.toString)
 //endregion
 
 //region Conversation changers

@@ -2,7 +2,7 @@ import Dependencies._
 name := "ScalaBotApi"
 
 lazy val commonSettings = Seq(
-  version := "0.1",
+  version := "0.2",
   scalaVersion := "2.11.8"
 )
 

@@ -35,11 +35,11 @@ class Webhook(host: String, port: Int) extends Actor with ActorLogging {
   implicit val executionContext: ExecutionContext = context.system.dispatcher
   implicit val materializer = ActorMaterializer()
 
+  private[this] var routesMap: Map[String, Route] = Map.empty
   private[this] var binder: Future[ServerBinding] = _
-  private[this] var routes: Route = _
   private[this] var isWorking: Boolean = false
 
-  def startListening(): Unit = {
+  def startListening(routes: Route): Unit = {
     binder = Http().bindAndHandle(routes, host, port)
     binder.onFailure {
       case ex: Exception => ex.printStackTrace()
@@ -48,18 +48,24 @@ class Webhook(host: String, port: Int) extends Actor with ActorLogging {
     isWorking = true
   }
 
-  def restartListening() = {
+  def restartListening(routes: Route) = {
     val futureResult = binder flatMap(_.unbind())
     Await.result(futureResult, 5 seconds)
-    startListening()
+    startListening(routes)
   }
 
   override def receive: Receive = {
-    case route: Route => if (routes == null) routes = route else routes = routes ~ route
-    case StartWebhook => if (isWorking) restartListening() else startListening()
+    case AddRoute(id, route) =>
+      routesMap = routesMap + (id -> route)
+      val newRoutes = routesMap.values.foldLeft(reject.asInstanceOf[Route])({
+        (accum, route) => accum ~ route
+      })
+      if (isWorking) restartListening(newRoutes) else startListening(newRoutes)
+    case StartWebhook => if (isWorking) restartListening(reject) else startListening(reject)
     case PoisonPill => binder flatMap(_.unbind())
   }
 }
 
+case class AddRoute(id: String, route: Route)
 case object StartWebhook
 
