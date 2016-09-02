@@ -39,7 +39,6 @@ trait VacationConversationProvider {
           case Some(date) =>
             val user = data.users(sender)
             data.updateUsers(sender, user.copy(isVocation = true))
-            //todo add JetPeople
             Reply(Exit).withIntent(ReplyMessageIntent(sender, s"I will not disturb you until ${sdf.format(date)}."))
           case None =>
             Reply(vacationUntilState).withIntent(ReplyMessageIntent(sender, "Invalid date format"))

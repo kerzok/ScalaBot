@@ -15,13 +15,24 @@ For now it's support **Slack**, **Skype** and **Telegram** messengers.
 * [Data store](#data-store)
 
 ## Getting started.
+For the beginning you need to add dependency for your SBT project:
 
+```scala
+libraryDependencies += "com.github.kerzok" %% "scalabotapi" % "0.1"
+```
+
+Also you need to create bot on different providers:
+* [How to create bot for Telegram](https://core.telegram.org/bots#3-how-do-i-create-a-bot)
+* [How to create bot for Skype](https://developer.microsoft.com/en-us/skype/bots/docs)
+* [How to create bot for Slack](https://api.slack.com/bot-users)
+
+After that you will can make your own bot.
 ## Writing your first bot.
  
 ### A simple echo bot
-The AbstractBot trait handle all messages from users and send it to conversations by different criteria
+The AbstractBot trait handle all messages from users and send it to conversations by different criteria.
 
-First of all we need to create new file called `EchoBot.scala` and inherits from `AbstractBot`
+First of all we need to create new file called `EchoBot.scala` and inherits from `AbstractBot`.
 `AbstractBot` apply `Data` class as generic argument. As we need no any additional data we use `EmptyData` class.  
 ```scala
 class EchoBot extends from AbstractBot[EmptyData] {
@@ -36,7 +47,7 @@ class EchoBot extends from AbstractBot[EmptyData] {
   override def startConversation: PartialFunction[Intent, Conversation] = ???
 }
 ```
-After that we need specify `id` which need for configuration and also add help and unknown text
+After that we need specify `id` which need for configuration and also add help and unknown text.
 ```scala
   override protected def id: String = "EchoBot"
 
@@ -44,16 +55,16 @@ After that we need specify `id` which need for configuration and also add help a
 
   override def printUnknown: String = "I don't understand you"
 ```
-`startConversation` is a function which handle all incoming messages and select suitable conversation to handle it
+`startConversation` is a function which handle all incoming messages and select suitable conversation to handle it.
 In our case we need to handle all text messages.
 ```scala
   override def startConversation: PartialFunction[Intent, Conversation] = {
     case intent: TextIntent => EchoConversation()(intent)
   }
 ```
-`EchoConversation` is the class inherited from `Conversation` which contains states like [FSM](https://en.wikipedia.org/wiki/Finite-state_machine)
-It applies `Intent` and return new `BotState` with optionally reply to user
-Our bot will have only one `BotState` 
+`EchoConversation` is the class inherited from `Conversation` which contains states like [FSM](https://en.wikipedia.org/wiki/Finite-state_machine).
+It applies `Intent` and return new `BotState` with optionally reply to user.
+Our bot will have only one `BotState`.
 ```scala
 case class EchoConversation() extends Conversation {
     override def initialState: BotState = BotState {
@@ -61,10 +72,10 @@ case class EchoConversation() extends Conversation {
     }
 } 
 ```
-`Exit` is the system `BotState` which finish conversation and turn user chat to `Idle`
+`Exit` is the system `BotState` which finish conversation and turn user chat to `Idle`.
 
 ### Configuration EchoBot
-In configuration file we need to define API keys and tokens for messengers to connect
+In configuration file we need to define API keys and tokens for messengers to connect.
 ```
 EchoBot {
   TelegramSource {
@@ -79,7 +90,7 @@ EchoBot {
   }
 }
 ```
-Also we need to add to specify some [Akka Persistence](http://doc.akka.io/docs/akka/snapshot/scala/persistence.html) parameters needs for internal use
+Also we need to add to specify some [Akka Persistence](http://doc.akka.io/docs/akka/snapshot/scala/persistence.html) parameters needs for internal use.
 ```
 akka.persistence.journal.plugin = "akka.persistence.journal.leveldb"
 akka.persistence.snapshot-store.plugin = "akka.persistence.snapshot-store.local"
@@ -88,7 +99,7 @@ akka.persistence.journal.leveldb.dir = "target/example/journal"
 akka.persistence.snapshot-store.local.dir = "target/example/snapshots"
 ```
 
-As the result we can run our EchoBot
+As the result we can run our EchoBot.
 
 ```scala
 object EchoBotMain {
@@ -98,13 +109,13 @@ object EchoBotMain {
 
 
 ## Extensions
-Extensions is a special mixin for `AbstractBot` which contains additional functionality
+Extensions is a special mixin for `AbstractBot` which contains additional functionality.
 There is several extensions available for use:
 
 ###Scheduler Extension
-Scheduler extension provides job scheduler based on [Quartz Job Scheduler](http://www.quartz-scheduler.org/)
-Job can be set by cron like expression or duration expressions
-Scheduler extension provides special type of intent — `SchedulerIntent` — which is send to the bot system as usual intent every time the scheduler triggered
+Scheduler extension provides job scheduler based on [Quartz Job Scheduler](http://www.quartz-scheduler.org/).
+Job can be set by cron like expression or duration expressions.
+Scheduler extension provides special type of intent — `SchedulerIntent` — which is send to the bot system as usual intent every time the scheduler triggered.
 
 Example:
 ```scala
@@ -117,7 +128,7 @@ val schedulerState = BotState {
 }
 ```
 
-You can catch this `Intent` in `startConversation` method
+You can catch this `Intent` in `startConversation` method.
 ```scala
 override def startConversation: PartialFunction[Intent, Conversation] = {
     ...
@@ -126,12 +137,12 @@ override def startConversation: PartialFunction[Intent, Conversation] = {
 }
 ```
 
-To cancel job use `delete("jobId")` method
+To cancel job use `delete("jobId")` method.
 ```scala
 delete("job1")
 ```
 ###Socket Extension
-Socket extension provides requests to the remote servers 
+Socket extension provides requests to the remote servers.
 To use this extension you need to call `makeRequest` method with SocketIntent which contains params:
 - `sender` — Chat which will be send the result
 - `url` — Url to call
@@ -143,7 +154,7 @@ val params = RequestParams(canCache = true).put("streamId", "feed/https://bash.o
 makeRequest[BashResponse](SocketIntent(intent.sender, "http://cloud.feedly.com/v3/streams/contents", params))
 ```
 
-The answer will be sent to the system and can be processed in `BotState` handler 
+The answer will be sent to the system and can be processed in `BotState` handler .
 ```scala
 val responseFromBashHandler: BotState = BotState {
   case ResultIntent(sender, result: BashResponse) =>
@@ -154,10 +165,10 @@ val responseFromBashHandler: BotState = BotState {
 }
 ```
 ###TextRazor Extension
-TextRazor extension is [Natural Language Processing](https://en.wikipedia.org/wiki/Natural_language_processing) Extension (NLP Extension) for improve parsing commands based on [TextRazor API](https://www.textrazor.com/)
+TextRazor extension is [Natural Language Processing](https://en.wikipedia.org/wiki/Natural_language_processing) Extension (NLP Extension) for improve parsing commands based on [TextRazor API](https://www.textrazor.com/).
 This extension build dependency tree of user command and can be matched with pattern.
 
-To configure TextRazor you need to specify `razorApiKey` value in code of your bot
+To configure TextRazor you need to specify `razorApiKey` value in code of your bot.
 
 Example:
 ```scala
@@ -175,7 +186,7 @@ override def startConversation: PartialFunction[Intent, Conversation] = {
 To write your own extension you need to inherit from Extension trait.
 
 ##Intents
-Intents is a part of data which is used for communicate between part of the bot system and users
+Intents is a part of data which is used for communicate between part of the bot system and users.
 There are several types of default intent, but you can create your own intent:
 
 `TextIntent` — Simple wrap of user's text sent to bot.
@@ -202,13 +213,13 @@ There are several types of default intent, but you can create your own intent:
 
 `SocketReply` — Message sent by SocketExtension which contains the result of HTTP request.
  
-You can create your own Intent by inherited Intent trait and parse it by overriding `handleCustomIntent` method
+You can create your own Intent by inherited Intent trait and parse it by overriding `handleCustomIntent` method.
 
 ##Data store
-`AbstractBot` is [PersistentActor](http://doc.akka.io/docs/akka/snapshot/scala/persistence.html) which can persist it's `data` and recover it after restart your bot
-To add more complex recover behavior you need to override `recoverState` method
+`AbstractBot` is [PersistentActor](http://doc.akka.io/docs/akka/snapshot/scala/persistence.html) which can persist it's `data` and recover it after restart your bot.
+To add more complex recover behavior you need to override `recoverState` method.
 
-To store data you need to send object `SaveSnapshot` to the `self` Actor
+To store data you need to send object `SaveSnapshot` to the `self` Actor.
 
 Example
 ```scala

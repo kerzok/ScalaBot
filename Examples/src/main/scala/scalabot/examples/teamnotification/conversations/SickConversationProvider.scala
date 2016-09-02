@@ -39,7 +39,6 @@ trait SickConversationProvider {
           case Some(date) =>
             val user = data.users(sender)
             data.updateUsers(sender, user.copy(isSick = true))
-            //todo add JetPeople
             Reply(Exit).withIntent(ReplyMessageIntent(sender, s"I will not disturb you until ${sdf.format(date)}.\nGet well soon!"))
           case None =>
             Reply(sickUntilState).withIntent(ReplyMessageIntent(sender, "Invalid date format"))

@@ -51,8 +51,7 @@ final class TeamNotificationBot extends AbstractBot[TeamNotificationData]
                               with SickConversationProvider
                               with CreateTeamConversationProvider
                               with VacationConversationProvider
-                              with AddNotificationStateProvider
-                              with ChangeJetPeopleIdConversationProvider {
+                              with AddNotificationStateProvider {
 
   protected val ONE_DAY: Duration = 1 day
   protected val ONE_WEEK: Duration = 7 days
@@ -69,7 +68,6 @@ final class TeamNotificationBot extends AbstractBot[TeamNotificationData]
                                       |"Sick leave" inform bot that you are sick
                                       |"Vacation" inform bot that you are on vacation
                                       |"Return" inform bot that you have returned from sick leave or vacation
-                                      |"Add JetPeople login" add JetPeople login to check your schedule
                                     """.stripMargin
 
   override def unknownMessage: String = """|Something goes wrong.
@@ -83,7 +81,6 @@ final class TeamNotificationBot extends AbstractBot[TeamNotificationData]
     case intent@TextIntent(_, text) if text.matches("(?:S|s)ick leave") => handleSetup(SickConversation(data), intent)
     case intent@TextIntent(_, text) if text.matches("(?:V|v)acation") => handleSetup(VacationConversation(data), intent)
     case intent@TextIntent(_, text) if text.matches("(?:R|r)eturn") => handleSetup(ReturnConversation(data), intent)
-    case intent@TextIntent(_, text) if text.matches("(?:A|a)dd (J|j)et(p|P)eople login") => handleSetup(ChangeJetPeopleIdConversation(), intent)
     case intent@ScheduleIntent(_, notification: Notification) => NotificationConversation(data)(intent)
     case intent@ScheduleIntent(_, flag: Flag) => FlagNotificationConversation(data)(intent)
   }
@@ -201,7 +198,6 @@ case class Team(id: String,
 }
 
 case class User(country: String,
-                jetPeopleLogin: String,
                 isVocation: Boolean = false,
                 isSick: Boolean = false) {
   def canDisturb: Boolean = !(isSick || isVocation)
