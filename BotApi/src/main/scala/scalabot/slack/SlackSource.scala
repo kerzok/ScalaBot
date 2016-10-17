@@ -124,7 +124,7 @@ class SlackSource(config: Config, override protected val botRef: ActorRef) exten
   }
 
   private final case class SlackApiClient(private val id: String)(override implicit val actorSystem: ActorSystem) extends ApiClient {
-    override type TIn = Map[String, String]
+    type TIn = Map[String, String]
 
     override protected def apiUrl(endpoint: String): String =
       (Try(scalabot.common.BotConfig.get("api.slack.url")).toOption getOrElse "https://slack.com/api/") + endpoint

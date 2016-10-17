@@ -95,7 +95,7 @@ class TelegramSource(config: Config, protected override val botRef: ActorRef) ex
 
   private final case class TelegramApiClient(private val id: String)
                                             (override implicit val actorSystem: ActorSystem) extends ApiClient {
-    override type TIn = Map[String, String]
+    type TIn = Map[String, String]
 
     override protected def request[T](method: HttpMethod,
                                       id: String, endpoint: String,

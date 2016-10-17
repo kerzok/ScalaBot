@@ -21,6 +21,6 @@ import scalabot.common.bot.BotHelper
 /**
   * Created by Nikolay.Smelik on 8/29/2016.
   */
-object EchoBotMain {
+object EchoBotMain extends App {
   BotHelper.registerBot(classOf[EchoBot])
 }

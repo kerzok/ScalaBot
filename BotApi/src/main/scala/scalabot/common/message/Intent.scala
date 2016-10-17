@@ -40,10 +40,10 @@ object TextIntent {
   def unapply(arg: TextIntent): Option[(Chat, String)] = Some(arg.sender, arg.text)
 }
 
-case class PositiveIntent(override val sender: Chat) extends Intent
+case class PositiveIntent(override val sender: Chat, override val text: String) extends TextIntent(sender, text)
 
 
-case class NegativeIntent(override val sender: Chat) extends Intent
+case class NegativeIntent(override val sender: Chat, override val text: String) extends TextIntent(sender, text)
 
 case class NumberIntent(override val sender: Chat,
                         value: Int) extends TextIntent(sender, value.toString)

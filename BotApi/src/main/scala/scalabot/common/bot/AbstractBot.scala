@@ -77,6 +77,9 @@ trait AbstractBot[TData <: Data] extends PersistentActor with ActorLogging {
     super.preRestart(reason, message)
   }
 
+  protected def positiveIntentMatcher(text: String): Boolean = text.matches("""(y|Y)es|(y|Y)up|(y|Y)eah|(y|Y)ep""")
+  protected def negativeIntentMatcher(text: String): Boolean = text.matches("""(N|n)o|(N|n)ope""")
+
   private[this] def handleSystemMessage: Receive = {
     case intent: ChangeStateIntent =>
       val recipientState = states(intent.recipient)
@@ -128,10 +131,10 @@ trait AbstractBot[TData <: Data] extends PersistentActor with ActorLogging {
   }
 
   private[this] def handleBasicIntent: PartialFunction[Any, Intent] = {
-    case incoming.TextMessage(sender, text) if text.matches("""(y|Y)es|(y|Y)up|(y|Y)eah|(y|Y)ep""") =>
-      PositiveIntent(sender)
-    case incoming.TextMessage(sender, text) if text.matches("""(N|n)o|(N|n)ope""") =>
-      NegativeIntent(sender)
+    case incoming.TextMessage(sender, text) if positiveIntentMatcher(text) =>
+      PositiveIntent(sender, text)
+    case incoming.TextMessage(sender, text) if negativeIntentMatcher(text) =>
+      NegativeIntent(sender, text)
     case incoming.TextMessage(sender, text) if text.matches("""\d+""") =>
       NumberIntent(sender, text.toInt)
   }

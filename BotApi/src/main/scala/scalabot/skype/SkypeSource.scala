@@ -83,7 +83,7 @@ class SkypeSource(config: Config, protected override val botRef: ActorRef) exten
     map(displayName => common.chat.User(displayName, update.name))  getOrElse common.chat.User("", None)
 
   private final case class SkypeApiClient(private val clientId: String, private val clientSecret: String)(override implicit val actorSystem: ActorSystem) extends ApiClient {
-    override type TIn = String
+    type TIn = String
     val authorizationUrl = Uri("https://login.microsoftonline.com/common/oauth2/v2.0/token")
     var expiredIn: Long = 0
     var accessToken: Future[String] = _
