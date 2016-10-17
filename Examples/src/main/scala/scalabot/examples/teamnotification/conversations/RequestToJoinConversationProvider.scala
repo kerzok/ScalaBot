@@ -39,12 +39,12 @@ trait RequestToJoinConversationProvider {
     }
 
     val requestForChannelState: BotState = BotState {
-      case SystemPositiveIntent(System) =>
+      case SystemPositiveIntent(_) =>
         val team = bundle.getObject[Team]("team")
         val chat = bundle.getObject[Chat]("destChat")
         Reply(requestState)
           .withIntent(ReplyMessageIntent(chat, s"Wait for agreement from user ${team.admin.from.displayName}"))
-      case SystemNegativeIntent(System) =>
+      case SystemNegativeIntent(_) =>
         val team = bundle.getObject[Team]("team")
         val chat = bundle.getObject[Chat]("destChat")
         Reply(Exit)

@@ -46,9 +46,9 @@ trait VacationConversationProvider {
     }
 
     val vacationUntilChoose: BotState = BotState {
-      case PositiveIntent(sender) =>
+      case PositiveIntent(sender, _) =>
         Reply(vacationUntilState).withIntent(ReplyMessageIntent(sender, "Please enter the end date of your vacation in format dd mm yyyy"))
-      case NegativeIntent(sender) =>
+      case NegativeIntent(sender, _) =>
         Reply(Exit).withIntent(ReplyMessageIntent(sender, "Okay, I will ask you about it when your turn of flag holder will come."))
     }
 

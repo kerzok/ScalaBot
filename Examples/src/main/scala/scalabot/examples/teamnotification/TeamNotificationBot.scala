@@ -52,7 +52,6 @@ final class TeamNotificationBot extends AbstractBot[TeamNotificationData]
                               with CreateTeamConversationProvider
                               with VacationConversationProvider
                               with AddNotificationStateProvider {
-
   protected val ONE_DAY: Duration = 1 day
   protected val ONE_WEEK: Duration = 7 days
   protected val GERMANY: String = "Germany"
@@ -60,7 +59,6 @@ final class TeamNotificationBot extends AbstractBot[TeamNotificationData]
   override protected val razorApiKey: String = BotConfig.get(id + ".razorApiKey")
   override protected var data: TeamNotificationData = TeamNotificationData()
   override protected def id: String = "TeamNotificationBot"
-
   override def helpMessage: String = """|Available commands:
                                       |"Join team $teamName" add you to team $teamName
                                       |"Create new team" creates new team
@@ -96,10 +94,10 @@ final class TeamNotificationBot extends AbstractBot[TeamNotificationData]
     flags.foreach(flag => repeatEvery(ONE_DAY, ScheduleIntent(flag.id, flag), flag.startTime))
   }
 
-  protected def checkRussianHoliday(user: Chat = System) = makeRequest[RussianHoliday](
+  protected def checkRussianHoliday(user: Chat = System()) = makeRequest[RussianHoliday](
     SocketIntent(user, "http://basicdata.ru/api/json/calend/", RequestParams(canCache = true)))
 
-  protected def checkGermanHoliday(user: Chat = System) = {
+  protected def checkGermanHoliday(user: Chat = System()) = {
     val calendar = Calendar.getInstance()
     val year = calendar.get(Calendar.YEAR).toString
     val month = (calendar.get(Calendar.MONTH) + 1).toString

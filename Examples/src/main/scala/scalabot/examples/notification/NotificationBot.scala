@@ -205,12 +205,12 @@ final class NotificationBot extends AbstractBot[NotificationData] with Scheduler
     }
 
     val requestForChannelState: BotState = BotState {
-      case SystemPositiveIntent(System) =>
+      case SystemPositiveIntent(_) =>
         val team = bundle.getObject[Team]("team")
         val chat = bundle.getObject[Chat]("destChat")
         Reply(requestState)
           .withIntent(ReplyMessageIntent(chat, s"Wait for agreement from user ${team.admin.from.displayName}"))
-      case SystemNegativeIntent(System) =>
+      case SystemNegativeIntent(_) =>
         val team = bundle.getObject[Team]("team")
         val chat = bundle.getObject[Chat]("destChat")
         Reply(Exit)
@@ -243,7 +243,7 @@ final class NotificationBot extends AbstractBot[NotificationData] with Scheduler
 
   class AgreementConversation extends Conversation {
     val agreementState: BotState = BotState {
-      case PositiveIntent(sender) =>
+      case PositiveIntent(sender, _) =>
         val team = bundle.getObject[Team]("team")
         val destChat = bundle.getObject[Chat]("destChat")
         val replies = (team.teammates :+ team.admin).map(user => ReplyMessageIntent(user, s"User ${destChat.from.displayName} joined to team ${team.name}"))
@@ -251,7 +251,7 @@ final class NotificationBot extends AbstractBot[NotificationData] with Scheduler
         Reply(Exit)
           .withIntent(SystemPositiveIntent(destChat))
           .withIntent(replies)
-      case NegativeIntent(sender) =>
+      case NegativeIntent(sender, _) =>
         val team = bundle.getObject[Team]("team")
         val destChat = bundle.getObject[Chat]("destChat")
         Reply(Exit)
@@ -276,9 +276,9 @@ final class NotificationBot extends AbstractBot[NotificationData] with Scheduler
 
   case class AddNotificationAgree(bundle: Bundle, data: NotificationData) extends BotState {
     override def handleIntent = {
-      case PositiveIntent(sender) =>
+      case PositiveIntent(sender, _) =>
         Reply(MoveToConversation(new AddNotificationConversation(data).appendBundle(bundle)))
-      case NegativeIntent(sender) =>
+      case NegativeIntent(sender, _) =>
         Reply(Exit)
       case _ => Reply(this)
     }

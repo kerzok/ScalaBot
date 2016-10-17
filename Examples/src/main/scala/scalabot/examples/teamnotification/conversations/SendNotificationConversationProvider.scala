@@ -68,12 +68,12 @@ trait SendNotificationConversationProvider {
             val notification = bundle.getObject[Notification]("notification")
             outputIntents = russianUsers.map(ReplyMessageIntent(_, notification.text))
         }
-        checkGermanHoliday()
+        checkGermanHoliday(sender)
         Reply(germanUsersSender).withIntent(outputIntents)
     }
 
     override def initialState: BotState = BotState {
-      case ScheduleIntent(_, notification: Notification) =>
+      case intent@ScheduleIntent(_, notification: Notification) =>
         val calendar = Calendar.getInstance()
         val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
         if (dayOfWeek == Calendar.SATURDAY || dayOfWeek == Calendar.SUNDAY) {
@@ -83,7 +83,7 @@ trait SendNotificationConversationProvider {
             case Some(team) =>
               bundle.put("notification", notification)
               bundle.put("team", team)
-              checkRussianHoliday()
+              checkRussianHoliday(intent.sender)
               Reply(russianUsersSender)
             case _ =>
               Reply(Exit)

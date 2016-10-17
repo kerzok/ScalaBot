@@ -29,7 +29,7 @@ trait AgreementConversationProvider {
 
   class AgreementConversation extends Conversation {
     val agreementState: BotState = BotState {
-      case PositiveIntent(sender) =>
+      case PositiveIntent(sender, _) =>
         val team = bundle.getObject[Team]("team")
         val destChat = bundle.getObject[Chat]("destChat")
         val replies = (team.teammates :+ team.admin).map(user => ReplyMessageIntent(user, s"User ${destChat.from.displayName} joined to team ${team.name}"))
@@ -37,7 +37,7 @@ trait AgreementConversationProvider {
         Reply(Exit)
           .withIntent(SystemPositiveIntent(destChat))
           .withIntent(replies)
-      case NegativeIntent(sender) =>
+      case NegativeIntent(sender, _) =>
         val team = bundle.getObject[Team]("team")
         val destChat = bundle.getObject[Chat]("destChat")
         Reply(Exit)

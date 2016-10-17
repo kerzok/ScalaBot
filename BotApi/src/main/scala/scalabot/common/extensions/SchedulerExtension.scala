@@ -91,7 +91,7 @@ trait SchedulerExtension extends BotExtension {
 }
 
 case class ScheduleIntent(name: String, data: Any) extends Intent {
-  override val sender: Chat = scalabot.common.chat.System
+  override val sender: Chat = scalabot.common.chat.System()
 }
 
 

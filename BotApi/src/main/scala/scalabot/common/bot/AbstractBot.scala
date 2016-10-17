@@ -145,8 +145,13 @@ trait AbstractBot[TData <: Data] extends PersistentActor with ActorLogging {
     case _ => throw new IllegalArgumentException("Unknown type of incoming message")
   }
 
-  private[this] def updateState(chat: Chat, newState: Conversation) = {
-    states += (chat -> newState)
+  private[this] def updateState(chat: Chat, newState: Conversation) = chat match {
+    case systemChat: scalabot.common.chat.System if newState.isInstanceOf[Idle] =>
+      states -= chat
+    case systemChat: scalabot.common.chat.System =>
+      states += (chat -> newState)
+    case chat: Chat =>
+      states += (chat -> newState)
   }
 
   private[this] def installSources() = {

@@ -41,14 +41,14 @@ trait AddFlagConversationProvider {
     }
 
     val addMoreTeammates: BotState = BotState {
-      case PositiveIntent(sender) =>
+      case PositiveIntent(sender, _) =>
         val team = bundle.getObject[Team]("team")
         val builder = bundle.getObject[FlagBuilder]("builder")
         val candidates = (team.teammates :+ team.admin).filter(!builder.participants.contains(_))
         bundle.put("candidates", candidates)
         val listOfUser = printListWithHeader[Chat](candidates, (chat) => {chat.source + " " + chat.from.displayName}, "Choose teammates can receive flag:\n")
         Reply(addTeammates).withIntent(ReplyMessageIntent(sender, listOfUser))
-      case NegativeIntent(sender) =>
+      case NegativeIntent(sender, _) =>
         saveNewFlag(sender)
       case intent: Intent =>
         Reply(addMoreTeammates).withIntent(ReplyMessageIntent(intent.sender, "Unknown keyword, please type yes or no"))

@@ -58,12 +58,12 @@ class TunnelBot extends AbstractBot[EmptyData] {
     }
 
     val requestForChannelState = BotState {
-      case SystemPositiveIntent(System) =>
+      case SystemPositiveIntent(_) =>
         val sourceChat: UserChat = bundle.getObject[UserChat]("sourceChat")
         val destChat: UserChat = bundle.getObject[UserChat]("destChat")
         Reply(requestState)
           .withIntent(ReplyMessageIntent(sourceChat, s"Wait for agreement from user ${destChat.userFullName}"))
-      case SystemNegativeIntent(System) =>
+      case SystemNegativeIntent(_) =>
         val sourceChat: UserChat = bundle.getObject[UserChat]("sourceChat")
         val destChat: UserChat = bundle.getObject[UserChat]("destChat")
         Reply(Exit)
@@ -98,12 +98,12 @@ class TunnelBot extends AbstractBot[EmptyData] {
 
   case class AgreementConversation(data: EmptyData) extends Conversation {
     val agreementState: BotState = BotState ({
-      case PositiveIntent(sender: UserChat) =>
+      case PositiveIntent(sender: UserChat, _) =>
         val sourceChat: UserChat = bundle.getObject[UserChat]("sourceChat")
         Reply(ConnectionEstablished(sourceChat))
           .withIntent(SystemPositiveIntent(sourceChat))
           .withIntent(ReplyMessageIntent(sender, "Connection established"))
-      case NegativeIntent(sender: UserChat) =>
+      case NegativeIntent(sender: UserChat, _) =>
         Reply(Exit)
           .withIntent(SystemNegativeIntent(sender))
           .withIntent(ReplyMessageIntent(sender, "Connection refused"))

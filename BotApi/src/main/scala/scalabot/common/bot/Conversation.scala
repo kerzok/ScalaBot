@@ -47,12 +47,12 @@ abstract class Conversation()(implicit private val botRef: ActorRef) extends Ser
     intent match {
       case AskChangeStateIntent(sender, recipient, newState, _) =>
         if (currentState.canChange) {
-          (SystemPositiveIntent(System), newState)
+          (SystemPositiveIntent(System()), newState)
         } else {
-          (SystemNegativeIntent(System), this)
+          (SystemNegativeIntent(System()), this)
         }
       case RequireChangeStateIntent(sender, recipient, newState, _) =>
-        (SystemPositiveIntent(System), newState)
+        (SystemPositiveIntent(System()), newState)
     }
   }
 

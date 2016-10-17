@@ -46,9 +46,9 @@ trait SickConversationProvider {
     }
 
     val sickUntilChoose: BotState = BotState {
-      case PositiveIntent(sender) =>
+      case PositiveIntent(sender, _) =>
         Reply(sickUntilState).withIntent(ReplyMessageIntent(sender, "Please enter the end date of your sick leave in format dd mm yyyy"))
-      case NegativeIntent(sender) =>
+      case NegativeIntent(sender, _) =>
         Reply(Exit).withIntent(ReplyMessageIntent(sender, "Okay, I will ask you about it when your turn of flag holder will come.\nGet well soon!"))
     }
 

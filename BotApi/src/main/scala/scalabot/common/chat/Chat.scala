@@ -17,6 +17,7 @@
 package scalabot.common.chat
 
 import java.beans.Transient
+import java.util.UUID
 
 import akka.actor.ActorContext
 
@@ -33,10 +34,8 @@ trait Chat extends Serializable {
   }
 }
 
-case object System extends Chat {
+case class System(id: String = "system" + UUID.randomUUID().toString) extends Chat {
   override def sendMessage(message: Any)(implicit system: ActorContext): Unit = {}
-
-  override def id: String = "system"
 
   override def source: String = "system"
 

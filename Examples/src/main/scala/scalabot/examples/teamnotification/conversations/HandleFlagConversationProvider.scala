@@ -20,7 +20,7 @@ import java.util.Calendar
 
 import org.json4s.JsonAST.JInt
 import scalabot.common.bot.{BotState, Conversation, Exit, Reply}
-import scalabot.common.chat.Chat
+import scalabot.common.chat.{Chat, System}
 import scalabot.common.extensions.{ResultIntent, ScheduleIntent}
 import scalabot.common.message.ReplyMessageIntent
 import scalabot.examples.teamnotification._
@@ -70,7 +70,7 @@ trait HandleFlagConversationProvider {
           case JInt(value) if value == 2 => bundle.put("isRussianHoliday", true)
           case _ => bundle.put("isRussianHoliday", false)
         }
-        checkGermanHoliday()
+        checkGermanHoliday(sender)
         Reply(todayHolidayHandler)
       case ResultIntent(sender, holidays: GermanHoliday) =>
         bundle.put("isGermanHoliday", holidays.holidays.arr.nonEmpty)
@@ -78,14 +78,14 @@ trait HandleFlagConversationProvider {
     }
 
     override def initialState: BotState = BotState {
-      case ScheduleIntent(_, flag: Flag) =>
+      case intent@ScheduleIntent(_, flag: Flag) =>
         val calendar = Calendar.getInstance()
         val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
         if (dayOfWeek == Calendar.SATURDAY || dayOfWeek == Calendar.SUNDAY) {
           Reply(Exit)
         } else {
           bundle.put("flag", flag)
-          checkRussianHoliday()
+          checkRussianHoliday(intent.sender)
           Reply(todayHolidayHandler)
         }
     }

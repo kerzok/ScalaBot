@@ -29,9 +29,9 @@ trait AddNotificationStateProvider {
 
   case class AddNotificationAgree(bundle: Bundle, data: TeamNotificationData) extends BotState {
     override def handleIntent = {
-      case PositiveIntent(sender) =>
+      case PositiveIntent(sender, _) =>
         Reply(MoveToConversation(new AddNotificationConversation(data).appendBundle(bundle)))
-      case NegativeIntent(sender) =>
+      case NegativeIntent(sender, _) =>
         Reply(Exit)
       case _ => Reply(this)
     }
