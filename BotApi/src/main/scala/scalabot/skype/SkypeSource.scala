@@ -39,7 +39,7 @@ import scalabot.common.web.AddRoute
 /**
   * Created by Nikolay.Smelik on 7/11/2016.
   */
-class SkypeSource(config: Config, protected override val botRef: ActorRef) extends common.Source {
+class SkypeSource(config: Config) extends common.Source {
   override val id: String = Try(config.getString("id")).toOption getOrElse(throw new IllegalArgumentException("Skype id is not defined in config"))
   val clientSecret: String = Try(config.getString("secret")).toOption getOrElse(throw new IllegalArgumentException("Skype secret is not defined in config"))
   override val sourceType: String = getClass.getSimpleName

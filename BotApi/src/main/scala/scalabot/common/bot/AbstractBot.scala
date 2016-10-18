@@ -16,16 +16,17 @@
 
 package scalabot.common.bot
 
-import akka.actor.{ActorLogging, ActorRef, ActorSystem, PoisonPill, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSelection, ActorSystem, OneForOneStrategy, PoisonPill, Props, SupervisorStrategy}
 import akka.http.scaladsl.server.Route
 import akka.pattern.{Backoff, BackoffSupervisor}
 import akka.persistence.{PersistentActor, SnapshotOffer}
+import akka.stream.ActorAttributes.SupervisionStrategy
 import org.reflections.Reflections
 
 import scalabot.common.chat.Chat
 import scalabot.common.message._
 import scalabot.common.message.incoming.IncomingMessage
-import scalabot.common.web.{AddRoute, StartWebhook, Webhook}
+import scalabot.common.web.{AddRoute, StartWebhook, StopWebhook, Webhook}
 import scalabot.common.{BotConfig, Source}
 import scala.collection.JavaConversions._
 import scala.collection.mutable
@@ -36,12 +37,14 @@ import scala.util.Try
   * Created by Nikolay.Smelik on 7/22/2016.
   */
 trait AbstractBot[TData <: Data] extends PersistentActor with ActorLogging {
+  val selfSelection: ActorSelection = context.actorSelection(s"akka://BotSystem/user/${id}Supervisor/$id")
   protected var data: TData
   protected def id: String
   implicit val system: ActorSystem = context.system
   private[this] val states: mutable.Map[Chat, Conversation] = mutable.Map.empty
   installSources()
   log.info(s"Bot $id successfully started!")
+
 
   def helpMessage: String
 
@@ -54,6 +57,8 @@ trait AbstractBot[TData <: Data] extends PersistentActor with ActorLogging {
   }
 
   override def receiveRecover: Receive = {
+    case chat: Chat =>
+      states += (chat -> Idle())
     case SnapshotOffer(metadata, offeredSnapshot: TData) =>
       data = offeredSnapshot
       states ++= data.chats.map(chat => chat -> Idle()).toMap
@@ -70,11 +75,9 @@ trait AbstractBot[TData <: Data] extends PersistentActor with ActorLogging {
 
   def handleCustomMessage: Receive = Map.empty
 
-  override def preRestart(reason: Throwable, message: Option[Any]): Unit = {
-    log.info(s"Bot $id is going to restart because of exception: ${reason.getMessage}")
-    saveSnapshot(data)
-    context.children.foreach(child => child ! PoisonPill)
-    super.preRestart(reason, message)
+
+  override def postStop(): Unit = {
+    BotHelper.webhook ! StopWebhook
   }
 
   protected def positiveIntentMatcher(text: String): Boolean = text.matches("""(y|Y)es|(y|Y)up|(y|Y)eah|(y|Y)ep""")
@@ -114,8 +117,10 @@ trait AbstractBot[TData <: Data] extends PersistentActor with ActorLogging {
     case message: incoming.IncomingMessage =>
       val intent = transformMessageToIntent(message)
       if (!states.contains(message.sender)) {
-        data.updateChats(message.sender)
-        updateState(message.sender, Idle())
+        persist(message.sender) { sender =>
+          data.updateChats(sender)
+          updateState(sender, Idle())
+        }
       }
       val state = states(message.sender)
       state match {
@@ -145,7 +150,7 @@ trait AbstractBot[TData <: Data] extends PersistentActor with ActorLogging {
     case _ => throw new IllegalArgumentException("Unknown type of incoming message")
   }
 
-  private[this] def updateState(chat: Chat, newState: Conversation) = chat match {
+  private[this] def updateState(chat: Chat, newState: Conversation): Unit = chat match {
     case systemChat: scalabot.common.chat.System if newState.isInstanceOf[Idle] =>
       states -= chat
     case systemChat: scalabot.common.chat.System =>
@@ -160,7 +165,7 @@ trait AbstractBot[TData <: Data] extends PersistentActor with ActorLogging {
     classes.foreach(sourceClass => {
       val valuesOpt = Try(BotConfig.getConfig(id + "." + sourceClass.getSimpleName)).toOption
       valuesOpt match {
-        case Some(values) => context.actorOf(Props(sourceClass, values, self), sourceClass.getSimpleName)
+        case Some(values) => context.actorOf(Props(sourceClass, values), sourceClass.getSimpleName)
         case None => //ignore
       }
     })
@@ -184,7 +189,10 @@ case object BotHelper {
         minBackoff = 2 seconds,
         maxBackoff = 20 seconds,
         randomFactor = 0.2
-      ))
+      ).withAutoReset(3 seconds)
+        .withSupervisorStrategy(OneForOneStrategy() {
+          case _ => SupervisorStrategy.Restart
+        }))
     system.actorOf(supervisor, botClass.getSimpleName + "Supervisor")
   }
 
@@ -197,7 +205,10 @@ case object BotHelper {
         minBackoff = 2 seconds,
         maxBackoff = 20 seconds,
         randomFactor = 0.2
-      ))
+      ).withAutoReset(3 seconds)
+      .withSupervisorStrategy(OneForOneStrategy() {
+        case _ => SupervisorStrategy.Restart
+      }))
     system.actorOf(supervisor, botClass.getSimpleName + "Supervisor")
   }
 }

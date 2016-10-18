@@ -39,7 +39,7 @@ import scala.util.Try
 /**
   * Created by Nikolay.Smelik on 7/12/2016.
   */
-class SlackSource(config: Config, override protected val botRef: ActorRef) extends common.Source {
+class SlackSource(config: Config) extends common.Source {
   override val sourceType: String = getClass.getSimpleName
   override val id: String = Try(config.getString("id")).toOption getOrElse(throw new IllegalArgumentException("Slack id is not defined in config"))
   private[this] val counter: AtomicInteger = new AtomicInteger(0)

@@ -37,7 +37,7 @@ import scalabot.common.web.AddRoute
 /**
   * Created by Nikolay.Smelik on 7/11/2016.
   */
-class TelegramSource(config: Config, protected override val botRef: ActorRef) extends common.Source {
+class TelegramSource(config: Config) extends common.Source {
   override val id: String = Try(config.getString("id")).toOption getOrElse(throw new IllegalArgumentException("Telegram id is not defined in config"))
   override val sourceType: String = getClass.getSimpleName
   private val client: TelegramApiClient = TelegramApiClient(id)(context.system)

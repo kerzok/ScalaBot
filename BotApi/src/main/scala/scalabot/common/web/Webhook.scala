@@ -56,16 +56,23 @@ class Webhook(host: String, port: Int) extends Actor with ActorLogging {
 
   override def receive: Receive = {
     case AddRoute(id, route) =>
-      routesMap = routesMap + (id -> route)
+      routesMap += (id -> route)
       val newRoutes = routesMap.values.foldLeft(reject.asInstanceOf[Route])({
         (accum, route) => accum ~ route
       })
       if (isWorking) restartListening(newRoutes) else startListening(newRoutes)
     case StartWebhook => if (isWorking) restartListening(reject) else startListening(reject)
-    case PoisonPill => binder flatMap(_.unbind())
+    case StopWebhook =>
+      binder.flatMap(_.unbind()).onComplete(_ => {
+        log.info("Webhook stopped")
+        routesMap = Map.empty
+        isWorking = false
+      })
+    case PoisonPill => binder.flatMap(_.unbind())
   }
 }
 
 case class AddRoute(id: String, route: Route)
 case object StartWebhook
+case object StopWebhook
 

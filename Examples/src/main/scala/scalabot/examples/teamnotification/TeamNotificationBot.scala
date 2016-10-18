@@ -36,7 +36,7 @@ import scala.concurrent.duration._
   * Created by Nikolay.Smelik on 7/25/2016.
   */
 final class TeamNotificationBot extends AbstractBot[TeamNotificationData]
-                              with SchedulerExtension
+                              with SchedulerExtension[TeamNotificationData]
                               with SocketExtension
                               with TextRazorExtension
                               with HandleFlagConversationProvider
@@ -79,9 +79,21 @@ final class TeamNotificationBot extends AbstractBot[TeamNotificationData]
     case intent@TextIntent(_, text) if text.matches("(?:S|s)ick leave") => handleSetup(SickConversation(data), intent)
     case intent@TextIntent(_, text) if text.matches("(?:V|v)acation") => handleSetup(VacationConversation(data), intent)
     case intent@TextIntent(_, text) if text.matches("(?:R|r)eturn") => handleSetup(ReturnConversation(data), intent)
+    case intent@TextIntent(_, text) if text.matches("boom") => BoomConversation()(intent)
+
     case intent@ScheduleIntent(_, notification: Notification) => NotificationConversation(data)(intent)
     case intent@ScheduleIntent(_, flag: Flag) => FlagNotificationConversation(data)(intent)
   }
+
+  case class BoomConversation() extends Conversation {
+    override def initialState: BotState = BotState {
+      case intent: Intent =>
+        var e = 0
+        var o = 3 / e
+        Reply(Exit)
+    }
+  }
+
 
   override def recoverState(data: TeamNotificationData) = {
     val notifications = data.teams.flatMap(team => team.notifications)

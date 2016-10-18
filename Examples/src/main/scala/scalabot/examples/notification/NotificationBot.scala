@@ -30,7 +30,7 @@ import scala.util.Try
 /**
   * Created by Nikolay.Smelik on 7/25/2016.
   */
-final class NotificationBot extends AbstractBot[NotificationData] with SchedulerExtension {
+final class NotificationBot extends AbstractBot[NotificationData] with SchedulerExtension[NotificationData] {
   override protected var data: NotificationData = NotificationData()
 
   override protected def id: String = "NotificationBot"
@@ -48,6 +48,16 @@ final class NotificationBot extends AbstractBot[NotificationData] with Scheduler
       new RequestToJoinConversation(data)(textIntent)
     case notificationIntent: ScheduleIntent =>
       new SendNotification(data)(notificationIntent)
+    case intent@TextIntent(_, text) if text == "boom" => BoomConversation()(intent)
+  }
+
+  case class BoomConversation() extends Conversation {
+    override def initialState: BotState = BotState {
+      case intent: Intent =>
+        var e = 0
+        var o = 3 / e
+        Reply(Exit)
+    }
   }
 
   class SendNotification(data: NotificationData) extends Conversation {

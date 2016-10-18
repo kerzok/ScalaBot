@@ -36,8 +36,8 @@ trait SendNotificationConversationProvider {
       case ResultIntent(sender, holidays: GermanHoliday) =>
         val isRussianHoliday = bundle.getBoolean("isRussianHoliday")
         var outputIntents = Seq[Intent]()
-        val germanUsers = bundle.getObject[Seq[Chat]]("german")
-        val russianUsers = bundle.getObject[Seq[Chat]]("russian")
+        /*val germanUsers = bundle.getObjectOpt[Seq[Chat]]("german")
+        val russianUsers = bundle.getObjectOpt[Seq[Chat]]("russian")
         if (holidays.holidays.arr.isEmpty) {
           val notification = bundle.getObject[Notification]("notification")
           outputIntents = germanUsers.map(ReplyMessageIntent(_, notification.text))
@@ -48,7 +48,7 @@ trait SendNotificationConversationProvider {
           if (germanUsers.nonEmpty) {
             outputIntents = russianUsers.map(chat => ReplyMessageIntent(chat, "By the way there is holiday in Germany"))
           }
-        }
+        }*/
         Reply(Exit).withIntent(outputIntents)
     }
 
@@ -64,9 +64,9 @@ trait SendNotificationConversationProvider {
             bundle.put("isRussianHoliday", true)
           case _ =>
             bundle.put("isRussianHoliday", false)
-            val russianUsers = bundle.getObject[Seq[Chat]]("russian")
+            val russianUsers = bundle.getObjectOpt[Seq[Chat]]("russian")
             val notification = bundle.getObject[Notification]("notification")
-            outputIntents = russianUsers.map(ReplyMessageIntent(_, notification.text))
+            outputIntents = russianUsers.map(_.map(ReplyMessageIntent(_, notification.text))).getOrElse(Seq())
         }
         checkGermanHoliday(sender)
         Reply(germanUsersSender).withIntent(outputIntents)

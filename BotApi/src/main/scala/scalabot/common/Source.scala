@@ -30,7 +30,7 @@ import scala.util.{Failure, Try}
 trait Source extends Actor with ActorLogging {
   val sourceType: String
   val id: String
-  protected val botRef: ActorRef
+  protected val botRef: ActorRef = context.parent
 
   override def receive: Receive = {
     case update: SourceMessage => Try(handleUpdate(update)) match {

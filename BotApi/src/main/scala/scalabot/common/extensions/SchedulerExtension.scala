@@ -21,16 +21,18 @@ import java.util.{Calendar, Date}
 
 import com.typesafe.akka.extension.quartz.QuartzSchedulerExtension
 import org.quartz.CronExpression
+
 import scalabot.common.chat.Chat
 import scalabot.common.message.Intent
-
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.{Duration, FiniteDuration}
+import scalabot.common.bot.{AbstractBot, Data}
 
 /**
   * Created by Nikolay.Smelik on 7/25/2016.
   */
-trait SchedulerExtension extends BotExtension {
+trait SchedulerExtension[TData <: Data] extends BotExtension {
+  this: AbstractBot[TData] =>
   private[this] var scheduler = QuartzSchedulerExtension(system)
 
   final def repeatEvery(duration: Duration, intent: ScheduleIntent, startDate: Date = new Date()) = {
@@ -38,18 +40,18 @@ trait SchedulerExtension extends BotExtension {
       case Duration(time, DAYS) =>
         val (hour, minute, second) = getTimeFromDate(startDate)
         scheduler.createSchedule(intent.name, cronExpression = s"$second $minute $hour */$time * ?")
-        scheduler.schedule(intent.name, self, intent, Some(startDate))
+        scheduler.schedule(intent.name, selfSelection, intent, Some(startDate))
       case Duration(time, HOURS) =>
         val (_, minute, second) = getTimeFromDate(startDate)
         scheduler.createSchedule(intent.name, cronExpression = s"$second $minute */$time ? * *")
-        scheduler.schedule(intent.name, self, intent, Some(startDate))
+        scheduler.schedule(intent.name, selfSelection, intent, Some(startDate))
       case Duration(time, MINUTES) =>
         val (_, _, second) = getTimeFromDate(startDate)
         scheduler.createSchedule(intent.name, cronExpression = s"$second */$time * ? * *")
-        scheduler.schedule(intent.name, self, intent, Some(startDate))
+        scheduler.schedule(intent.name, selfSelection, intent, Some(startDate))
       case Duration(time, SECONDS) =>
         scheduler.createSchedule(intent.name, cronExpression = s"*/$time * * ? * *")
-        scheduler.schedule(intent.name, self, intent, Some(startDate))
+        scheduler.schedule(intent.name, selfSelection, intent, Some(startDate))
       case _ => throw new UnsupportedOperationException("Duration less than minutes is unsupported")
     }
   }
@@ -62,7 +64,7 @@ trait SchedulerExtension extends BotExtension {
   final def repeat(cronExpression: String, intent: ScheduleIntent) = {
     if (CronExpression.isValidExpression(cronExpression)) {
       scheduler.createSchedule(intent.name, cronExpression = cronExpression)
-      scheduler.schedule(intent.name, self, intent)
+      scheduler.schedule(intent.name, selfSelection, intent)
     } else {
       throw new IllegalArgumentException(s"invalid cron expression $cronExpression")
     }
