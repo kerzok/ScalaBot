@@ -16,8 +16,12 @@
 
 package scalabot
 
+import akka.http.scaladsl.model.HttpEntity
+import akka.http.scaladsl.unmarshalling.{Unmarshaller, _}
+import akka.util.ByteString
 import org.json4s.DefaultFormats
 import org.json4s.ext.EnumNameSerializer
+import org.json4s.native.JsonMethods._
 
 import scalabot.skype.ActivityType
 
@@ -30,4 +34,18 @@ object Implicits {
       new EnumNameSerializer(telegram.MessageEntityType) +
       new EnumNameSerializer(ActivityType)
   }
+
+  implicit val telegramUpdateFromEntityUnmarsheller: FromEntityUnmarshaller[telegram.Update] =
+    Unmarshaller.withMaterializer {
+      implicit ex => implicit mat => entity: HttpEntity =>
+        entity.dataBytes.runFold(ByteString.empty)(_ ++ _)
+          .map(_.utf8String).map(parse(_).extract[telegram.Update])
+    }
+
+  implicit val skypeUpdateFromEntityUnmarshaller: FromEntityUnmarshaller[Seq[skype.Update]] =
+    Unmarshaller.withMaterializer {
+      implicit  ex => implicit mat => entity: HttpEntity =>
+        entity.dataBytes.runFold(ByteString.empty)(_ ++ _)
+            .map(_.utf8String).map(parse(_).extract[Seq[skype.Update]])
+    }
 }

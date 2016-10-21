@@ -16,30 +16,28 @@
 
 package scalabot.common.bot
 
-import akka.actor.{Actor, ActorLogging, ActorRef, ActorSelection, ActorSystem, OneForOneStrategy, PoisonPill, Props, SupervisorStrategy}
-import akka.http.scaladsl.server.Route
+import akka.actor._
 import akka.pattern.{Backoff, BackoffSupervisor}
 import akka.persistence.{PersistentActor, SnapshotOffer}
-import akka.stream.ActorAttributes.SupervisionStrategy
 import org.reflections.Reflections
 
-import scalabot.common.chat.Chat
-import scalabot.common.message._
-import scalabot.common.message.incoming.IncomingMessage
-import scalabot.common.web.{AddRoute, StartWebhook, StopWebhook, Webhook}
-import scalabot.common.{BotConfig, Source}
 import scala.collection.JavaConversions._
 import scala.collection.mutable
 import scala.concurrent.duration._
 import scala.util.Try
+import scalabot.common.chat.Chat
+import scalabot.common.message._
+import scalabot.common.message.incoming.IncomingMessage
+import scalabot.common.web.{AddRoute, StopWebhook, Webhook}
+import scalabot.common.{BotConfig, Source}
 
 /**
   * Created by Nikolay.Smelik on 7/22/2016.
   */
 trait AbstractBot[TData <: Data] extends PersistentActor with ActorLogging {
-  val selfSelection: ActorSelection = context.actorSelection(s"akka://BotSystem/user/${id}Supervisor/$id")
   protected var data: TData
   protected def id: String
+  val selfSelection: ActorSelection = context.actorSelection(s"akka://BotSystem/user/${id}Supervisor/$id")
   implicit val system: ActorSystem = context.system
   private[this] val states: mutable.Map[Chat, Conversation] = mutable.Map.empty
   installSources()
@@ -114,14 +112,19 @@ trait AbstractBot[TData <: Data] extends PersistentActor with ActorLogging {
   private[this] def transformMessageToIntent: PartialFunction[IncomingMessage, Intent] = handleBasicIntent orElse handleCustomIntent orElse handleTextIntent
 
   private[this] def handleIncomingMessage: Receive = {
-    case message: incoming.IncomingMessage =>
-      val intent = transformMessageToIntent(message)
-      if (!states.contains(message.sender)) {
-        persist(message.sender) { sender =>
-          data.updateChats(sender)
-          updateState(sender, Idle())
+    case message: incoming.IncomingMessage if !states.contains(message.sender) =>
+      persist(message.sender) { sender =>
+        val intent = transformMessageToIntent(message)
+        data.updateChats(sender)
+        updateState(sender, Idle())
+        val state = states(message.sender)
+        state match {
+          case Idle() => updateState(message.sender, selectConversationByIntent(intent))
+          case otherState => updateState(message.sender, otherState(intent))
         }
       }
+    case message: incoming.IncomingMessage =>
+      val intent = transformMessageToIntent(message)
       val state = states(message.sender)
       state match {
         case Idle() => updateState(message.sender, selectConversationByIntent(intent))

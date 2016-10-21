@@ -16,23 +16,22 @@
 
 package scalabot.telegram
 
-import akka.actor.{ActorRef, ActorSystem}
+import akka.actor.ActorSystem
+import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.RouteResult.Rejected
 import com.typesafe.config.Config
 import org.json4s.native.JsonMethods._
-
-import scalabot.Implicits._
-import scalabot.common.ApiClient
-import scalabot.common.message.incoming.SourceMessage
-import scalabot.common.message.{incoming, outcoming}
-import scalabot.{common, telegram}
 import spray.http.{HttpMethod, HttpRequest, Uri}
 
 import scala.concurrent.ExecutionContext.Implicits._
 import scala.concurrent.Future
 import scala.util.Try
+import scalabot.Implicits._
+import scalabot.common.ApiClient
+import scalabot.common.message.incoming.SourceMessage
+import scalabot.common.message.{incoming, outcoming}
 import scalabot.common.web.AddRoute
+import scalabot.{common, telegram}
 
 /**
   * Created by Nikolay.Smelik on 7/11/2016.
@@ -42,21 +41,21 @@ class TelegramSource(config: Config) extends common.Source {
   override val sourceType: String = getClass.getSimpleName
   private val client: TelegramApiClient = TelegramApiClient(id)(context.system)
 
-  val pathToWebhook = path("telegram" / Remaining) { botId => pathEnd {
-    post {
-      decodeRequest {
-        entity(as[String]) { stringUpdate =>
-            complete {
-              val update = parse(stringUpdate).extract[telegram.Update]
-              update.message.foreach(message => self ! update)
-              "Update received"
-            }
+  val pathToWebhook = path("telegram" / Remaining) {
+    botId => pathEnd {
+      post {
+        decodeRequest {
+          entity(as[telegram.Update]) { update =>
+            update.message.foreach(message => self ! update)
+            complete(StatusCodes.OK)
+          }
         }
       }
     }
   }
-  }
   botRef ! AddRoute(sourceType, pathToWebhook)
+
+
 
   protected override def sendReply(message: outcoming.OutgoingMessage, to: common.chat.Chat): Unit = message match {
     case message: outcoming.TextMessage =>

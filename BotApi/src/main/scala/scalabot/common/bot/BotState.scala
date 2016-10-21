@@ -24,9 +24,7 @@ import scalabot.common.message._
 trait BotState extends Serializable {
   val canChange: Boolean = true
   def handleIntent: Intent => Reply
-  def apply(intent: Intent): Reply = intent match {
-    case _ => handleIntent(intent)
-  }
+  def apply(intent: Intent): Reply = handleIntent(intent)
 }
 
 case class HelpInitialBotState(helpText: String) extends BotState {

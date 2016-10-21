@@ -21,12 +21,13 @@ import akka.http.scaladsl.server.Directives._
 import com.typesafe.config.Config
 import org.json4s.Extraction
 import org.json4s.native.JsonMethods._
-
+import akka.http.scaladsl.model.StatusCodes
 import scalabot.Implicits._
 import scalabot.common.ApiClient
 import scalabot.common.message.incoming.SourceMessage
 import scalabot.common.message.{incoming, outcoming}
 import scalabot.{common, skype}
+import scalabot.Implicits._
 import spray.http.CacheDirectives.`no-cache`
 import spray.http.HttpHeaders.{Authorization, `Cache-Control`}
 import spray.http._
@@ -49,10 +50,10 @@ class SkypeSource(config: Config) extends common.Source {
   val pathToWebhook = path("skype" / Remaining) { botId => pathEnd {
     post {
       decodeRequest {
-        entity(as[String]) { stringUpdate =>
-          complete {
-            parse(stringUpdate).extract[Seq[skype.Update]].foreach(update => self ! update)
-            "Update received"
+        entity(as[Seq[skype.Update]]) {
+          updates => {
+            updates.foreach(update => self ! update)
+            complete(StatusCodes.OK)
           }
         }
       }
@@ -109,14 +110,13 @@ class SkypeSource(config: Config) extends common.Source {
             s"grant_type=client_credentials&scope=https%3A%2F%2Fgraph.microsoft.com%2F.default").getBytes)))
           .map(_.entity.asString)
           .map(parse(_).extract[AccessTokenObject])
-          .map(accessObject => {
-            if (accessObject.access_token.isDefined) {
-              expiredIn = System.currentTimeMillis() + (accessObject.expires_in.getOrElse(0) * 1000)
-              accessObject.access_token.get
-            } else {
-              throw new SkypeException(accessObject.error.get, accessObject.error_description.get)
-            }
-          })
+          .map {
+            case AccessTokenObject(Some(tokenType), Some(expiresIn), Some(extExpiresIn), Some(newAccessToken), None, None) =>
+              this.expiredIn = expiresIn * 1000L
+              newAccessToken
+            case AccessTokenObject(None, None, None, None, Some(error), Some(description)) =>
+              throw new SkypeException(error, description)
+          }
         accessToken
       }
   }

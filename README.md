@@ -1,6 +1,10 @@
 # Bot API for Scala
 
-This is simple framework for easy development bots on Scala language based on [Akka](http://akka.io/).
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![CircleCI](https://img.shields.io/circleci/project/kerzok/ScalaBot.svg?style=svg)](https://circleci.com/gh/kerzok/ScalaBot)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/118c4444970941f093da8874648b4c6e)](https://www.codacy.com/app/kerzok11/ScalaBot?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=kerzok/ScalaBot&amp;utm_campaign=Badge_Grade)
+
+This is simple framework for easy develop bots in [FSM](https://en.wikipedia.org/wiki/Finite-state_machine) style on Scala language based on [Akka](http://akka.io/).
 For now it's support **Slack**, **Skype** and **Telegram** messengers.
 
 * [Getting started](#getting-started)
@@ -18,7 +22,7 @@ For now it's support **Slack**, **Skype** and **Telegram** messengers.
 For the beginning you need to add dependency for your SBT project:
 
 ```scala
-libraryDependencies += "com.github.kerzok" %% "scalabotapi" % "0.2.4"
+libraryDependencies += "com.github.kerzok" %% "scalabotapi" % "0.2.7"
 ```
 
 Also you need to create bot on different providers:
@@ -35,7 +39,7 @@ The AbstractBot trait handle all messages from users and send it to conversation
 First of all we need to create new file called `EchoBot.scala` and inherits from `AbstractBot`.
 `AbstractBot` apply `Data` class as generic argument. As we need no any additional data we use `EmptyData` class.  
 ```scala
-class EchoBot extends from AbstractBot[EmptyData] {
+class EchoBot extends AbstractBot[EmptyData] {
   override protected var data: EmptyData = EmptyData()
     
   override protected def id: String = ???
@@ -107,6 +111,7 @@ object EchoBotMain {
 }
 ```
 
+More examples you can find [Here](https://github.com/kerzok/ScalaBot/tree/master/Examples/src/main/scala/scalabot/examples).
 
 ## Extensions
 Extensions is a special mixin for `AbstractBot` which contains additional functionality.

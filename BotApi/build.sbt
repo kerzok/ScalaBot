@@ -1,6 +1,6 @@
 name := "ScalaBotApi"
 
-version := "0.2.6"
+version := "0.2.7"
 scalaVersion := "2.11.8"
 organization := "com.github.kerzok"
 
@@ -40,9 +40,7 @@ publishTo in ThisBuild := {
 }
 
 publishArtifact in Test := false
-
 pomIncludeRepository := { _ => false }
-
 pomExtra := <url>https://github.com/kerzok/ScalaBot</url>
   <licenses>
     <license>
