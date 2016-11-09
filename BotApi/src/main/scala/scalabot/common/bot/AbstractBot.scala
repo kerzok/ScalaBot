@@ -18,7 +18,6 @@ package scalabot.common.bot
 
 import akka.actor._
 import akka.pattern.{Backoff, BackoffSupervisor}
-import akka.persistence.{PersistentActor, SnapshotOffer}
 import org.reflections.Reflections
 
 import scala.collection.JavaConversions._
@@ -34,7 +33,7 @@ import scalabot.common.{BotConfig, Source}
 /**
   * Created by Nikolay.Smelik on 7/22/2016.
   */
-trait AbstractBot[TData <: Data] extends PersistentActor with ActorLogging {
+trait AbstractBot[TData <: Data] extends Actor with ActorLogging {
   protected var data: TData
   protected def id: String
   val selfSelection: ActorSelection = context.actorSelection(s"akka://BotSystem/user/${id}Supervisor/$id")
@@ -54,25 +53,13 @@ trait AbstractBot[TData <: Data] extends PersistentActor with ActorLogging {
     data.chats.find(chat => chat.source.toLowerCase.contains(source.toLowerCase) && (chat.id == id))
   }
 
-  override def receiveRecover: Receive = {
-    case chat: Chat =>
-      states += (chat -> Idle())
-    case SnapshotOffer(metadata, offeredSnapshot: TData) =>
-      data = offeredSnapshot
-      states ++= data.chats.map(chat => chat -> Idle()).toMap
-      recoverState(data)
-  }
-
   def recoverState(data: TData): Unit = {}
 
-  override def persistenceId: String = id
-
-  override def receiveCommand: Receive = handleSystemMessage orElse handleOutgoingMessage orElse handleIncomingMessage orElse handleCustomMessage
+  override def receive: Receive = handleSystemMessage orElse handleOutgoingMessage orElse handleIncomingMessage orElse handleCustomMessage
 
   def handleCustomIntent: PartialFunction[Any, Intent] = Map.empty
 
   def handleCustomMessage: Receive = Map.empty
-
 
   override def postStop(): Unit = {
     BotHelper.webhook ! StopWebhook
@@ -90,7 +77,6 @@ trait AbstractBot[TData <: Data] extends PersistentActor with ActorLogging {
       updateState(intent.recipient, newState(intent.innerIntent))
     case AddRoute(sourceId, route) =>
       BotHelper.webhook ! AddRoute(id + sourceId, route)
-    case SaveSnapshot => saveSnapshot(data)
   }
 
   private[this] def handleOutgoingMessage: Receive = {
@@ -112,19 +98,12 @@ trait AbstractBot[TData <: Data] extends PersistentActor with ActorLogging {
   private[this] def transformMessageToIntent: PartialFunction[IncomingMessage, Intent] = handleBasicIntent orElse handleCustomIntent orElse handleTextIntent
 
   private[this] def handleIncomingMessage: Receive = {
-    case message: incoming.IncomingMessage if !states.contains(message.sender) =>
-      persist(message.sender) { sender =>
-        val intent = transformMessageToIntent(message)
-        data.updateChats(sender)
-        updateState(sender, Idle())
-        val state = states(message.sender)
-        state match {
-          case Idle() => updateState(message.sender, selectConversationByIntent(intent))
-          case otherState => updateState(message.sender, otherState(intent))
-        }
-      }
     case message: incoming.IncomingMessage =>
       val intent = transformMessageToIntent(message)
+      if (!states.contains(message.sender)) {
+        data.updateChats(message.sender)
+        updateState(message.sender, Idle())
+      }
       val state = states(message.sender)
       state match {
         case Idle() => updateState(message.sender, selectConversationByIntent(intent))
@@ -175,7 +154,6 @@ trait AbstractBot[TData <: Data] extends PersistentActor with ActorLogging {
   }
 
 }
-case object SaveSnapshot
 
 case object BotHelper {
   val system = ActorSystem("BotSystem")

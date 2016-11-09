@@ -20,15 +20,13 @@
 import sbt._
 
 object Dependencies {
-  lazy val akkaVersion = "2.4.7"
+  lazy val akkaVersion = "2.4.12"
   lazy val sprayVersion = "1.3.1"
   lazy val json4sVersion = "3.4.0"
   val coreApiDeps = Seq("com.typesafe.akka"          %% "akka-actor"               % akkaVersion,
   "com.typesafe.akka"          %% "akka-slf4j"               % akkaVersion,
   "com.typesafe.akka"          %% "akka-testkit"             % akkaVersion % "test",
-  "com.typesafe.akka"          %% "akka-http-core"           % akkaVersion,
-  "com.typesafe.akka"          %% "akka-http-experimental"   % akkaVersion,
-  "com.typesafe.akka"          %% "akka-persistence"         % akkaVersion,
+  "com.typesafe.akka"          %% "akka-http-core"           % "3.0.0-RC1",
   "com.enragedginger"          %% "akka-quartz-scheduler"    % "1.5.0-akka-2.4.x",
   "io.spray"                   %% "spray-client"             % sprayVersion,
   "io.spray"                   %% "spray-can"                % sprayVersion,

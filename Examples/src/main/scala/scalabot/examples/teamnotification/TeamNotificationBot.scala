@@ -136,11 +136,9 @@ case class TeamNotificationData(var teams: Set[Team] = Set.empty,
   def getTeamById(id: String): Option[Team] = teams.find(_.id == id)
   def updateTeams(team: Team)(implicit self: ActorRef): Unit = {
     teams = teams.filterNot(_ == team) + team
-    self ! SaveSnapshot
   }
   def updateUsers(chat: Chat, user: User)(implicit self: ActorRef): Unit = {
     users = users + (chat -> user)
-    self ! SaveSnapshot
   }
 }
 
