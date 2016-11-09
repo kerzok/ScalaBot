@@ -16,13 +16,12 @@ For now it's support **Slack**, **Skype** and **Telegram** messengers.
     * [Socket Extension](#socket-extension)
     * [TextRazor Extension](#textrazor-extension)
 * [Intents](#intents)
-* [Data store](#data-store)
 
 ## Getting started.
 For the beginning you need to add dependency for your SBT project:
 
 ```scala
-libraryDependencies += "com.github.kerzok" %% "scalabotapi" % "0.2.7"
+libraryDependencies += "com.github.kerzok" %% "scalabotapi" % "0.2.8"
 ```
 
 Also you need to create bot on different providers:
@@ -219,14 +218,3 @@ There are several types of default intent, but you can create your own intent:
 `SocketReply` — Message sent by SocketExtension which contains the result of HTTP request.
  
 You can create your own Intent by inherited Intent trait and parse it by overriding `handleCustomIntent` method.
-
-##Data store
-`AbstractBot` is [PersistentActor](http://doc.akka.io/docs/akka/snapshot/scala/persistence.html) which can persist it's `data` and recover it after restart your bot.
-To add more complex recover behavior you need to override `recoverState` method.
-
-To store data you need to send object `SaveSnapshot` to the `self` Actor.
-
-Example
-```scala
-self ! SaveSnapshot
-```
