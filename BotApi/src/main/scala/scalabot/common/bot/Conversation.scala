@@ -67,11 +67,11 @@ case class Idle()(implicit val actorRef: ActorRef) extends Conversation {
 }
 
 class HelpConversation(helpText: String)(implicit val actorRef: ActorRef) extends Conversation {
-  override def initialState: BotState = HelpInitialBotState(helpText)
+  override def initialState: BotState = StateWithDefaultReply(helpText)
 }
 
 class UnknownConversation(unknownText: String)(implicit val actorRef: ActorRef) extends Conversation {
-  override def initialState: BotState = UnknownInitialBotState(unknownText)
+  override def initialState: BotState = StateWithDefaultReply(unknownText)
 }
 
 case class Bundle() {

@@ -41,8 +41,8 @@ import scalabot.common.web.AddRoute
   * Created by Nikolay.Smelik on 7/11/2016.
   */
 class SkypeSource(config: Config) extends common.Source {
-  override val id: String = Try(config.getString("id")).toOption getOrElse(throw new IllegalArgumentException("Skype id is not defined in config"))
-  val clientSecret: String = Try(config.getString("secret")).toOption getOrElse(throw new IllegalArgumentException("Skype secret is not defined in config"))
+  override val id: String = Try(config.getString("id")).toOption getOrElse (throw new IllegalArgumentException("Skype id is not defined in config"))
+  val clientSecret: String = Try(config.getString("secret")).toOption getOrElse (throw new IllegalArgumentException("Skype secret is not defined in config"))
   override val sourceType: String = getClass.getSimpleName
   private val client: SkypeApiClient = SkypeApiClient(id, clientSecret)(context.system)
 
@@ -81,9 +81,9 @@ class SkypeSource(config: Config) extends common.Source {
   }
 
   private def getUser(update: Update): common.chat.User = update.fromDisplayName.
-    map(displayName => common.chat.User(displayName, update.name))  getOrElse common.chat.User("", None)
+    map(displayName => common.chat.User(displayName, update.name)) getOrElse common.chat.User("", None)
 
-  private final case class SkypeApiClient(private val clientId: String, private val clientSecret: String)(override implicit val actorSystem: ActorSystem) extends ApiClient {
+  private final case class SkypeApiClient(private val clientId: String, private val clientSecret: String)(implicit val actorSystem: ActorSystem) extends ApiClient {
     type TIn = String
     val authorizationUrl = Uri("https://login.microsoftonline.com/common/oauth2/v2.0/token")
     var expiredIn: Long = 0
@@ -120,4 +120,5 @@ class SkypeSource(config: Config) extends common.Source {
         accessToken
       }
   }
+
 }

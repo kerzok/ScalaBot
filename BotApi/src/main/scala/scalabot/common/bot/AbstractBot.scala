@@ -57,9 +57,9 @@ trait AbstractBot[TData <: Data] extends Actor with ActorLogging {
 
   override def receive: Receive = handleSystemMessage orElse handleOutgoingMessage orElse handleIncomingMessage orElse handleCustomMessage
 
-  def handleCustomIntent: PartialFunction[Any, Intent] = Map.empty
+  def handleCustomIntent: PartialFunction[Any, Intent] = PartialFunction.empty
 
-  def handleCustomMessage: Receive = Map.empty
+  def handleCustomMessage: Receive = PartialFunction.empty
 
   override def postStop(): Unit = {
     BotHelper.webhook ! StopWebhook
@@ -86,11 +86,11 @@ trait AbstractBot[TData <: Data] extends Actor with ActorLogging {
 
   private[this] def selectBaseConversation: PartialFunction[Intent, Conversation] = {
     case intent@TextIntent(_, text) if text.matches("(?:H|h)elp") =>
-      new HelpConversation(helpMessage)(self)(intent)
+      new HelpConversation(helpMessage).apply(intent)
   }
 
   private[this] def selectUnknownConversation: PartialFunction[Intent, Conversation] = {
-    case intent: Intent => new UnknownConversation(unknownMessage)(self)(intent)
+    case intent: Intent => new UnknownConversation(unknownMessage).apply(intent)
   }
 
   private[this] def selectConversationByIntent = selectBaseConversation orElse startConversation orElse selectUnknownConversation
@@ -161,36 +161,27 @@ case object BotHelper {
   private[this] val webhookPort: Int = Try(BotConfig.get("bot.webhook.port").toInt).toOption.getOrElse(8080)
   private[bot] val webhook = system.actorOf(Props(classOf[Webhook], webhookHost, webhookPort))
 
-  def registerBot[T](botClass: Class[T]): ActorRef = {
-    val botProps = Props(botClass)
-    val supervisor = BackoffSupervisor.props(
+  def registerBot[T](botClass: Class[T]): ActorRef = registerBot(Props(botClass), botClass)
+
+  def registerBot[T](botClass: Class[T], args: Any*): ActorRef = registerBot(Props(botClass, args), botClass)
+
+  private def registerBot[T](botProps: Props, botClass: Class[T]) = {
+    val supervisorProps = withSupervisor(botProps, botClass.getSimpleName)
+    system.actorOf(supervisorProps, botClass.getSimpleName + "Supervisor")
+  }
+
+  private def withSupervisor(props: Props, name: String) = {
+    BackoffSupervisor.props(
       Backoff.onFailure(
-        botProps,
-        childName = botClass.getSimpleName,
+        props,
+        childName = name,
         minBackoff = 2 seconds,
         maxBackoff = 20 seconds,
         randomFactor = 0.2
       ).withAutoReset(3 seconds)
         .withSupervisorStrategy(OneForOneStrategy() {
           case _ => SupervisorStrategy.Restart
-        }))
-    system.actorOf(supervisor, botClass.getSimpleName + "Supervisor")
-  }
-
-  def registerBot[T](botClass: Class[T], args: Any*): ActorRef = {
-    val botProps = Props(botClass, args)
-    val supervisor = BackoffSupervisor.props(
-      Backoff.onFailure(
-        botProps,
-        childName = botClass.getSimpleName,
-        minBackoff = 2 seconds,
-        maxBackoff = 20 seconds,
-        randomFactor = 0.2
-      ).withAutoReset(3 seconds)
-      .withSupervisorStrategy(OneForOneStrategy() {
-        case _ => SupervisorStrategy.Restart
       }))
-    system.actorOf(supervisor, botClass.getSimpleName + "Supervisor")
   }
 }
 

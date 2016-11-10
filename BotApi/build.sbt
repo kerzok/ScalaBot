@@ -21,11 +21,8 @@ libraryDependencies ++= Seq("com.typesafe.akka"          %% "akka-actor"        
   "io.spray"                    % "spray-util_2.11"               % sprayVersion,
   "org.json4s"                 %% "json4s-ext"               % json4sVersion,
   "org.json4s"                 %% "json4s-native"            % json4sVersion,
-  "org.specs2"                 %% "specs2-core"              % "3.8.4",
   "com.wandoulabs.akka"        %% "spray-websocket"          % "0.1.4",
   "org.reflections"             % "reflections"              % "0.9.10",
-  "org.iq80.leveldb"            % "leveldb"                  % "0.7",
-  "org.fusesource.leveldbjni"   % "leveldbjni-all"           % "1.8",
   "com.textrazor"               % "textrazor"                % "1.0.9",
   "org.scalatest"              %% "scalatest"                % "2.2.1" % "test")
 

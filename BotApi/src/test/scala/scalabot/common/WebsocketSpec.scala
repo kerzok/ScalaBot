@@ -18,25 +18,22 @@ package scalabot.common
 
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
+import org.scalatest.{FlatSpecLike, Matchers}
+
 import scalabot.common.web.{WebSocket, WebSocketHelper}
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 /**
   * Created by Nikolay.Smelik on 8/30/2016.
   */
-class WebsocketTest(_system: ActorSystem) extends TestKit(_system) with ImplicitSender with Matchers with WordSpecLike with BeforeAndAfterAll {
-  def this() = this(ActorSystem("WebsocketTest"))
+class WebsocketSpec extends TestKit(ActorSystem("websocketTest")) with ImplicitSender with Matchers with FlatSpecLike {
 
-  "webSocket" must {
-    "receive message" in {
-      var wsmsg = ""
-      val wse = system.actorOf(Props(classOf[WebSocket], self))
-      wse ! WebSocketHelper.Connect("echo.websocket.org", 443, "/echo", withSsl = true)
-      Thread.sleep(3500L)
-      val rock = "Rock it with WebSocket"
-      wse ! WebSocketHelper.Send(rock)
-      expectMsg(rock)
-      wse ! WebSocketHelper.Release
-    }
+  it should "receive message" in {
+    var wsmsg = ""
+    val wse = system.actorOf(Props(classOf[WebSocket], self))
+    wse ! WebSocketHelper.Connect("echo.websocket.org", 443, "/echo", withSsl = true)
+    Thread.sleep(3500L)
+    val rock = "Rock it with WebSocket"
+    wse ! WebSocketHelper.Send(rock)
+    expectMsg(rock)
+    wse ! WebSocketHelper.Release
   }
-
 }

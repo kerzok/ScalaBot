@@ -27,25 +27,24 @@ trait BotState extends Serializable {
   def apply(intent: Intent): Reply = handleIntent(intent)
 }
 
-case class HelpInitialBotState(helpText: String) extends BotState {
-  override def handleIntent: Intent => Reply = {
-    intent: Intent => Reply(Exit)
-      .withIntent(ReplyMessageIntent(intent.sender, outcoming.TextMessage(helpText)))
-  }
-}
+case class StateWithDefaultReply(defaultReply: String) extends BotState {
+  override val canChange: Boolean = false
 
-case class UnknownInitialBotState(unknownText: String) extends BotState {
   override def handleIntent: Intent => Reply = {
     intent: Intent => Reply(Exit)
-      .withIntent(ReplyMessageIntent(intent.sender, outcoming.TextMessage(unknownText)))
+      .withIntent(ReplyMessageIntent(intent.sender, defaultReply))
   }
 }
 
 case object Exit extends BotState {
+  override val canChange: Boolean = false
+
   def handleIntent: Intent => Reply = { intent: Intent => Reply(Exit)}
 }
 
 case class MoveToConversation(newConversation: Conversation, intent: Intent = null) extends BotState {
+  override val canChange: Boolean = false
+
   override def handleIntent = throw new IllegalStateException("Unsupported operation for this state")
 }
 

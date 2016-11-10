@@ -75,15 +75,12 @@ object RequireChangeStateIntent {
   def apply(recipient: Chat, sender: Chat, newState: Conversation) = new RequireChangeStateIntent(recipient, sender, newState, EmptyIntent(sender))
 }
 
-class ReplyMessageIntent(override val sender: Chat,
-                         val message: OutgoingMessage) extends Intent
+case class ReplyMessageIntent(override val sender: Chat,
+                              message: OutgoingMessage) extends Intent
 //endregion
 
 object ReplyMessageIntent {
-  def apply(recipient: Chat, message: OutgoingMessage): ReplyMessageIntent = new ReplyMessageIntent(recipient, message)
   def apply(recipient: Chat, message: String): ReplyMessageIntent = new ReplyMessageIntent(recipient, outcoming.TextMessage(message))
-
-  def unapply(arg: ReplyMessageIntent): Option[(Chat, OutgoingMessage)] = Some(arg.sender, arg.message)
 }
 
 case class EmptyIntent(sender: Chat) extends Intent
