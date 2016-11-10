@@ -19,7 +19,7 @@ package scalabot.common
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import org.scalatest.{FlatSpecLike, Matchers}
-
+import scala.concurrent.duration._
 import scalabot.common.web.{WebSocket, WebSocketHelper}
 /**
   * Created by Nikolay.Smelik on 8/30/2016.
@@ -32,7 +32,7 @@ class WebsocketSpec extends TestKit(ActorSystem("websocketTest")) with ImplicitS
     Thread.sleep(3500L)
     val rock = "Rock it with WebSocket"
     wse ! WebSocketHelper.Send(rock)
-    expectMsg(rock)
+    expectMsg(10 seconds, rock)
     wse ! WebSocketHelper.Release
   }
 }
