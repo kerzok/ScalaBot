@@ -27,7 +27,6 @@ import scalabot.common.web.{WebSocket, WebSocketHelper}
 class WebsocketSpec extends TestKit(ActorSystem("websocketTest")) with ImplicitSender with Matchers with FlatSpecLike {
 
   it should "receive message" in {
-    var wsmsg = ""
     val wse = system.actorOf(Props(classOf[WebSocket], self))
     wse ! WebSocketHelper.Connect("echo.websocket.org", 443, "/echo", withSsl = true)
     Thread.sleep(3500L)

@@ -1,4 +1,3 @@
-import Dependencies._
 name := "ScalaBotApi"
 
 lazy val commonSettings = Seq(
@@ -7,9 +6,6 @@ lazy val commonSettings = Seq(
 )
 
 
-lazy val BotApi = project in file("BotApi") settings(commonSettings: _*) settings(libraryDependencies ++= coreApiDeps)
+lazy val BotApi = project in file("BotApi")
 
 lazy val Examples = project in file("Examples") settings (commonSettings: _*) dependsOn BotApi
-
-resolvers += "Spray" at "http://repo.spray.io"
-publishTo := Some(Resolver.file("file",  new File(Path.userHome.absolutePath+"/.m2/repository")))

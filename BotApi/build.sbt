@@ -9,16 +9,16 @@ lazy val akkaHttpVersion = "3.0.0-RC1"
 lazy val sprayVersion = "1.3.1"
 lazy val json4sVersion = "3.4.0"
 
-libraryDependencies ++= Seq("com.typesafe.akka"          %% "akka-actor"               % akkaVersion,
+libraryDependencies ++= Seq(
+  "com.typesafe.akka"          %% "akka-actor"               % akkaVersion,
   "com.typesafe.akka"          %% "akka-slf4j"               % akkaVersion,
   "com.typesafe.akka"          %% "akka-testkit"             % akkaVersion % "test",
   "com.typesafe.akka"          %% "akka-http-core"           % akkaHttpVersion,
   "com.typesafe.akka"          %% "akka-http"                % akkaHttpVersion,
   "com.enragedginger"          %% "akka-quartz-scheduler"    % "1.5.0-akka-2.4.x",
   "io.spray"                   %% "spray-client"             % sprayVersion,
-  "io.spray"                   %% "spray-can"                % sprayVersion,
-  "io.spray"                    % "spray-caching_2.11"            % sprayVersion,
-  "io.spray"                    % "spray-util_2.11"               % sprayVersion,
+  "io.spray"                    % "spray-caching_2.11"       % sprayVersion,
+  "io.spray"                    % "spray-util_2.11"          % sprayVersion,
   "org.json4s"                 %% "json4s-ext"               % json4sVersion,
   "org.json4s"                 %% "json4s-native"            % json4sVersion,
   "com.wandoulabs.akka"        %% "spray-websocket"          % "0.1.4",
