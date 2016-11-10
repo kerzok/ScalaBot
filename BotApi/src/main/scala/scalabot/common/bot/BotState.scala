@@ -28,21 +28,21 @@ trait BotState extends Serializable {
 }
 
 case class HelpInitialBotState(helpText: String) extends BotState {
-  override def handleIntent = {
+  override def handleIntent: Intent => Reply = {
     intent: Intent => Reply(Exit)
       .withIntent(ReplyMessageIntent(intent.sender, outcoming.TextMessage(helpText)))
   }
 }
 
 case class UnknownInitialBotState(unknownText: String) extends BotState {
-  override def handleIntent = {
+  override def handleIntent: Intent => Reply = {
     intent: Intent => Reply(Exit)
       .withIntent(ReplyMessageIntent(intent.sender, outcoming.TextMessage(unknownText)))
   }
 }
 
 case object Exit extends BotState {
-  def handleIntent = {intent: Intent => Reply(Exit)}
+  def handleIntent: Intent => Reply = { intent: Intent => Reply(Exit)}
 }
 
 case class MoveToConversation(newConversation: Conversation, intent: Intent = null) extends BotState {
@@ -50,13 +50,21 @@ case class MoveToConversation(newConversation: Conversation, intent: Intent = nu
 }
 
 case object BotState {
-  def apply(function: PartialFunction[Intent, Reply], isCanChange: Boolean = true): BotState = new BotState with Serializable {
+  def apply(function: PartialFunction[Intent, Reply], isCanChange: Boolean = true, hasExit: Boolean = true): BotState = new BotState with Serializable {
     override val canChange: Boolean = isCanChange
+    val exitIntentFunc: PartialFunction[Intent, Reply] = {
+      case TextIntent(sender, text) if text.matches("(?:E|e)xit conversation") =>
+        Reply(Exit).withIntent(ReplyMessageIntent(sender, "Conversation was interrupted"))
+    }
+
     val handleIntentFunc: PartialFunction[Intent, Reply] = {
       case _ => Reply(this)
     }
 
-    override def handleIntent = function orElse handleIntentFunc
+    override def handleIntent: PartialFunction[Intent, Reply] = {
+      if (hasExit) exitIntentFunc orElse function orElse handleIntentFunc
+      else function orElse handleIntentFunc
+    }
   }
 }
 
