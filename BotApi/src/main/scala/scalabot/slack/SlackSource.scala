@@ -69,7 +69,12 @@ class SlackSource(config: Config) extends common.Source {
               val members = getChannelMembers(channel)
               common.chat.GroupChat(channel.id, sourceType, transformSlackUserToCommon(user.get), Some(channel.name), members)
             case None =>
-              val im = findImById(slackUpdate.channel).get
+              val im = findOrCacheImById(slackUpdate.channel,
+                for {
+                  id <- slackUpdate.channel
+                  userId <- slackUpdate.user
+                } yield Im(id, userId, Option(slackUpdate))).get
+
               common.chat.UserChat(im.id, sourceType, transformSlackUserToCommon(user.get))
           }
           val commonMessage = incoming.TextMessage(chat, text)
@@ -113,8 +118,12 @@ class SlackSource(config: Config) extends common.Source {
     case _ => None
   }
 
-  private def findImById(imIdOpt: Option[String]): Option[Im] = imIdOpt match {
-    case Some(imId) => integrationInfo.ims.find(storeIm => storeIm.id == imId)
+  private def findOrCacheImById(imIdOpt: Option[String], newIm: => Option[Im]): Option[Im] = imIdOpt match {
+    case Some(imId) =>
+      integrationInfo.ims.find(storeIm => storeIm.id == imId).orElse {
+        if (newIm.isDefined) integrationInfo = integrationInfo.copy(ims = integrationInfo.ims :+ newIm.get)
+        newIm
+      }
     case _ => None
   }
 
