@@ -41,7 +41,7 @@ import scala.util.Try
   */
 class SlackSource(config: Config) extends common.Source {
   override val sourceType: String = getClass.getSimpleName
-  override val id: String = Try(config.getString("id")).toOption getOrElse(throw new IllegalArgumentException("Slack id is not defined in config"))
+  override val id: String = Try(config.getString("id")).toOption getOrElse (throw new IllegalArgumentException("Slack id is not defined in config"))
   private[this] val counter: AtomicInteger = new AtomicInteger(0)
   private[this] val client: SlackApiClient = SlackApiClient(id)(context.system)
   private[this] val webSocket = context.actorOf(Props(classOf[WebSocket], self), s"${sourceType}Websocket")
@@ -86,7 +86,7 @@ class SlackSource(config: Config) extends common.Source {
 
   private def getHostAndPath(url: String): (String, String) = {
     val withoutProtocol = url drop 6
-    val host = (withoutProtocol split '/')(0)
+    val host = (withoutProtocol split '/') (0)
     (host, withoutProtocol.drop(host.length))
   }
 
@@ -121,8 +121,12 @@ class SlackSource(config: Config) extends common.Source {
   private def findOrCacheImById(imIdOpt: Option[String], newIm: => Option[Im]): Option[Im] = imIdOpt match {
     case Some(imId) =>
       integrationInfo.ims.find(storeIm => storeIm.id == imId).orElse {
-        if (newIm.isDefined) integrationInfo = integrationInfo.copy(ims = integrationInfo.ims :+ newIm.get)
-        newIm
+        newIm match {
+          case Some(im) =>
+            integrationInfo = integrationInfo.copy(ims = integrationInfo.ims :+ im)
+            newIm
+          case _ => newIm
+        }
       }
     case _ => None
   }
@@ -143,4 +147,5 @@ class SlackSource(config: Config) extends common.Source {
         .map(_.entity.asString)
         .map(value => parse(value).extract[TOut])
   }
+
 }

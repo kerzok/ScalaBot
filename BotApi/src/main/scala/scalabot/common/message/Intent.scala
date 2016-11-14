@@ -16,7 +16,7 @@
 
 package scalabot.common.message
 
-import scalabot.common.bot.Conversation
+import scalabot.common.bot.{BotState, Conversation, Reply}
 import scalabot.common.chat.Chat
 import scalabot.common.message.outcoming.OutgoingMessage
 
@@ -84,4 +84,20 @@ object ReplyMessageIntent {
 }
 
 case class EmptyIntent(sender: Chat) extends Intent
+
+object OptionalIntentBuilder {
+  def apply(sender: Chat, text: String, options: Seq[(String, Chat => Reply)]): Reply = {
+    val message = options.zipWithIndex.map {
+      case ((str, _), index) => s"${index + 1}. $str"
+    }.mkString(text + "\n", "\n", "")
+    def numberState: BotState = BotState {
+      case NumberIntent(sender, i) if i > 0 && i <= options.length =>
+        val (_, fun) = options.apply(i - 1)
+        fun(sender)
+      case _ =>
+        Reply(numberState).withIntent(ReplyMessageIntent(sender, "Wrong number. Please try one more time.\n" + message))
+    }
+    Reply(numberState).withIntent(ReplyMessageIntent(sender, message))
+  }
+}
 
