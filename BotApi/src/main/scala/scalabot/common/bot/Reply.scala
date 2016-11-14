@@ -16,7 +16,9 @@
 
 package scalabot.common.bot
 
-import scalabot.common.message.Intent
+import scalabot.common.chat.Chat
+import scalabot.common.message.outcoming.OutgoingMessage
+import scalabot.common.message.{Intent, ReplyMessageIntent}
 
 
 /**
@@ -26,12 +28,22 @@ case class Reply(state: BotState) {
   var intents: Seq[Intent] = Seq.empty
 
   def withIntent(intent: Intent): Reply = {
-    intents = intents :+ intent
+    intents +:= intent
     this
   }
 
   def withIntent(intents: Seq[Intent]): Reply = {
-    this.intents = this.intents ++ intents
+    this.intents ++= intents
+    this
+  }
+
+  def withTextReply(sender: Chat, text: String): Reply = {
+    this.intents +:= ReplyMessageIntent(sender, text)
+    this
+  }
+
+  def withMessageReply(sender: Chat, message: OutgoingMessage): Reply = {
+    this.intents +:= ReplyMessageIntent(sender, message)
     this
   }
 }
