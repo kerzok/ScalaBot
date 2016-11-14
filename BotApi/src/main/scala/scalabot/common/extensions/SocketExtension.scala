@@ -30,7 +30,7 @@ import scala.concurrent.Future
   * Created by Nikolay.Smelik on 8/3/2016.
   */
 trait SocketExtension extends BotExtension {
-  var cache: Cache[Any] = LruCache(timeToLive = cacheExpiration)
+  val cache: Cache[Any] = LruCache(timeToLive = cacheExpiration)
   val pipeline: HttpRequest => Future[HttpResponse] = sendReceive
 
   def cacheExpiration: Duration = 1 day

@@ -37,12 +37,12 @@ case class Reply(state: BotState) {
     this
   }
 
-  def withTextReply(sender: Chat, text: String): Reply = {
+  def withText(sender: Chat, text: String): Reply = {
     this.intents +:= ReplyMessageIntent(sender, text)
     this
   }
 
-  def withMessageReply(sender: Chat, message: OutgoingMessage): Reply = {
+  def withMessage(sender: Chat, message: OutgoingMessage): Reply = {
     this.intents +:= ReplyMessageIntent(sender, message)
     this
   }
