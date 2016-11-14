@@ -22,7 +22,7 @@ trait Stubs {
     case intent: Intent if intent == intentToReact => Reply(OtherState).withIntent(ReplyMessageIntent(senderStub, "default response"))
   }, canChange, hasExit)
 
-  def conversation(botState: BotState = botStateStub())(implicit actorRef: ActorRef) = new Conversation() {
+  def conversationStub(botState: BotState = botStateStub())(implicit actorRef: ActorRef) = new Conversation() {
     override def initialState: BotState = botState
   }
 }

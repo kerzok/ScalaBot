@@ -24,13 +24,14 @@ import scalabot.common.chat.{Chat, System}
 import scala.collection.mutable
 import scala.util.Try
 import scala.concurrent.duration._
+import scalabot.common.message.outcoming.{OutgoingMessage, TextMessage}
 
 /**
   * Created by Nikolay.Smelik on 7/22/2016.
   */
 abstract class Conversation()(implicit private val botRef: ActorRef) extends Serializable {
   val bundle: Bundle = Bundle()
-  private[this] var currentState: BotState = initialState
+  private[bot] var currentState: BotState = initialState
 
   def initialState: BotState
   final def apply(intent: Intent): Conversation = {
@@ -53,12 +54,12 @@ abstract class Conversation()(implicit private val botRef: ActorRef) extends Ser
     intent match {
       case AskChangeStateIntent(sender, recipient, newState, _) =>
         if (currentState.canChange) {
-          (SystemPositiveIntent(System()), newState)
+          (SystemPositiveIntent(recipient), newState)
         } else {
-          (SystemNegativeIntent(System()), this)
+          (SystemNegativeIntent(recipient), this)
         }
       case RequireChangeStateIntent(sender, recipient, newState, _) =>
-        (SystemPositiveIntent(System()), newState)
+        (SystemPositiveIntent(recipient), newState)
     }
   }
 
@@ -93,12 +94,12 @@ case class Idle()(implicit val actorRef: ActorRef) extends Conversation {
   override def initialState: BotState = Exit
 }
 
-class HelpConversation(helpText: String)(implicit val actorRef: ActorRef) extends Conversation {
-  override def initialState: BotState = StateWithDefaultReply(helpText)
+case class ConversationWithDefaultReply(message: OutgoingMessage)(implicit val actorRef: ActorRef) extends Conversation {
+  override def initialState: BotState = StateWithDefaultReply(message)
 }
 
-class UnknownConversation(unknownText: String)(implicit val actorRef: ActorRef) extends Conversation {
-  override def initialState: BotState = StateWithDefaultReply(unknownText)
+case object ConversationWithDefaultReply {
+  def apply(message: String)(implicit actorRef: ActorRef): Conversation = ConversationWithDefaultReply(TextMessage(message))
 }
 
 case class Bundle() {
@@ -133,5 +134,9 @@ case class Bundle() {
 
   def ++=(bundle: Bundle): Unit = {
     bundleMap ++= bundle.bundleMap
+  }
+
+  def containsKey(name: String): Boolean = {
+    bundleMap.contains(name)
   }
 }

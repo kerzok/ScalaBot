@@ -32,8 +32,7 @@ class BotStateSpec extends FlatSpec with Matchers with Stubs {
 
     val reply = state(TextIntent(senderStub, "exit conversation"))
 
-    reply.intents.length shouldEqual 1
-    reply.intents.foreach(_ shouldEqual ReplyMessageIntent(senderStub, "Conversation was interrupted"))
+    reply.intents shouldEqual Seq(ReplyMessageIntent(senderStub, "Conversation was interrupted"))
   }
 
   it should "react for exit conversation message if first letter is upper case" in {
@@ -63,7 +62,7 @@ class BotStateSpec extends FlatSpec with Matchers with Stubs {
   "MoveToConversation" should "throw IllegalStateException in case of incoming message" in {
     val system = ActorSystem("test")
     implicit val actor = system.actorOf(Props.empty)
-    val state = MoveToConversation(conversation())
+    val state = MoveToConversation(conversationStub())
 
     intercept[IllegalStateException] {
       state(defaultIntent)
@@ -78,7 +77,6 @@ class BotStateSpec extends FlatSpec with Matchers with Stubs {
     val reply = helpState(TextIntent(senderStub, "some message"))
 
     reply.state shouldEqual Exit
-    reply.intents.length shouldEqual 1
-    reply.intents.foreach(_ shouldEqual ReplyMessageIntent(senderStub, helpMessage))
+    reply.intents shouldEqual Seq(ReplyMessageIntent(senderStub, helpMessage))
   }
 }

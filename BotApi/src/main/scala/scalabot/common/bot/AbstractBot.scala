@@ -86,11 +86,11 @@ trait AbstractBot[TData <: Data] extends Actor with ActorLogging {
 
   private[this] def selectBaseConversation: PartialFunction[Intent, Conversation] = {
     case intent@TextIntent(_, text) if text.matches("(?:H|h)elp") =>
-      new HelpConversation(helpMessage).apply(intent)
+      ConversationWithDefaultReply(helpMessage).apply(intent)
   }
 
   private[this] def selectUnknownConversation: PartialFunction[Intent, Conversation] = {
-    case intent: Intent => new UnknownConversation(unknownMessage).apply(intent)
+    case intent: Intent => ConversationWithDefaultReply(unknownMessage).apply(intent)
   }
 
   private[this] def selectConversationByIntent = selectBaseConversation orElse startConversation orElse selectUnknownConversation
