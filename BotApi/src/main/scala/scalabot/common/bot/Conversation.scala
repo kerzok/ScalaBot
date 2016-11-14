@@ -17,10 +17,13 @@
 package scalabot.common.bot
 
 import akka.actor.ActorRef
+import akka.util.Timeout
+
 import scalabot.common.message._
-import scalabot.common.chat.System
+import scalabot.common.chat.{Chat, System}
 import scala.collection.mutable
 import scala.util.Try
+import scala.concurrent.duration._
 
 /**
   * Created by Nikolay.Smelik on 7/22/2016.
@@ -35,6 +38,9 @@ abstract class Conversation()(implicit private val botRef: ActorRef) extends Ser
     reply.intents.foreach(message => botRef ! message)
     reply.state match {
       case Exit => Idle()
+      case state : StateWithDefaultReply =>
+        currentState = state
+        apply(intent)
       case MoveToConversation(conversation, newIntent: Intent) => conversation(newIntent)
       case MoveToConversation(conversation, _) => conversation(intent)
       case newState: BotState =>
@@ -60,6 +66,27 @@ abstract class Conversation()(implicit private val botRef: ActorRef) extends Ser
     bundle ++= otherBundle
     this
   }
+}
+
+trait AsyncConversation extends Conversation {
+  def asyncResponse: PartialFunction[AsyncIntent, Reply]
+
+  implicit val timeout: Timeout = Timeout(1 second)
+  def errorMessage: String
+  def asyncFailedMessage: String
+  val asyncState: BotState = {
+    BotState {
+      case AsyncFailed(sender) =>
+        Reply(Exit).withIntent(ReplyMessageIntent(sender, asyncFailedMessage))
+      case async: AsyncIntent if asyncResponse.isDefinedAt(async) => asyncResponse(async)
+      case textIntent: TextIntent =>
+        Reply(asyncState).withIntent(ReplyMessageIntent(textIntent.sender, errorMessage))
+    }
+  }
+
+  trait AsyncIntent extends Intent
+  case class DataAsyncIntent[T](sender: Chat, data: T)
+  case class AsyncFailed(sender: Chat) extends AsyncIntent
 }
 
 case class Idle()(implicit val actorRef: ActorRef) extends Conversation {

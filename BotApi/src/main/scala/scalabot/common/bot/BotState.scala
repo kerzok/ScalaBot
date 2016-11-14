@@ -17,6 +17,7 @@
 package scalabot.common.bot
 
 import scalabot.common.message._
+import scalabot.common.message.outcoming.{OutgoingMessage, TextMessage}
 
 /**
   * Created by Nikolay.Smelik on 7/22/2016.
@@ -27,7 +28,7 @@ trait BotState extends Serializable {
   def apply(intent: Intent): Reply = handleIntent(intent)
 }
 
-case class StateWithDefaultReply(defaultReply: String) extends BotState {
+case class StateWithDefaultReply(defaultReply: OutgoingMessage) extends BotState {
   override val canChange: Boolean = false
 
   override def handleIntent: Intent => Reply = {
@@ -35,6 +36,11 @@ case class StateWithDefaultReply(defaultReply: String) extends BotState {
       .withIntent(ReplyMessageIntent(intent.sender, defaultReply))
   }
 }
+
+case object StateWithDefaultReply {
+  def apply(defaultReply: String): StateWithDefaultReply = StateWithDefaultReply(TextMessage(defaultReply))
+}
+
 
 case object Exit extends BotState {
   override val canChange: Boolean = false
