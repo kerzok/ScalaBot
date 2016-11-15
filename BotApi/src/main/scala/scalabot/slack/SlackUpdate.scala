@@ -132,7 +132,7 @@ case object SlackUpdate {
       case jValue@JString("team_join") => json.removeField(_ == JField("type", jValue)).camelizeKeys.extract[TeamJoin]
       case jValue@JString(messageType) => UnexpectedEvent(messageType)
       case JNothing => json \ "ok" match {
-        case jValue: JBool => json.camelizeKeys.extract[ResponseMessage]
+        case JBool(value) => json.camelizeKeys.extract[ResponseMessage]
         case _ => UnexpectedEvent("undefined", Some(write(json)))
       }
       case _ => UnexpectedEvent("undefined", Some(write(json)))
