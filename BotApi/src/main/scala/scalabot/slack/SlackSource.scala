@@ -18,7 +18,7 @@ package scalabot.slack
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.{ActorLogging, ActorRef, ActorSystem, Props}
 import com.typesafe.config.Config
 import org.json4s.Extraction
 import org.json4s.native.JsonMethods._
@@ -39,7 +39,7 @@ import scala.util.Try
 /**
   * Created by Nikolay.Smelik on 7/12/2016.
   */
-class SlackSource(config: Config) extends common.Source {
+class SlackSource(config: Config) extends common.Source with ActorLogging {
   override val sourceType: String = getClass.getSimpleName
   override val id: String = Try(config.getString("id")).toOption getOrElse (throw new IllegalArgumentException("Slack id is not defined in config"))
   private[this] val counter: AtomicInteger = new AtomicInteger(0)
@@ -58,51 +58,36 @@ class SlackSource(config: Config) extends common.Source {
   }
 
   override protected def handleUpdate[T <: SourceMessage](update: T): Unit = update match {
-    case slackUpdate: slack.Update =>
-      slackUpdate.`type` match {
-        case "message" =>
-          val channelOpt = findChannelById(slackUpdate.channel)
-          val user = findUserById(slackUpdate.user)
-          val text = slackUpdate.text.getOrElse("")
+    case update@TextMessage(channelId, userId, text, _) =>
+      val channelOpt = findChannelById(channelId)
+      findUserById(userId) match {
+        case Some(user) =>
           val chat = channelOpt match {
             case Some(channel) =>
               val members = getChannelMembers(channel)
-              common.chat.GroupChat(channel.id, sourceType, transformSlackUserToCommon(user.get), Some(channel.name), members)
+              common.chat.GroupChat(channel.id, sourceType, transformSlackUserToCommon(user), Some(channel.name), members)
             case None =>
-              val im = findOrCacheImById(slackUpdate.channel,
-                for {
-                  id <- slackUpdate.channel
-                  userId <- slackUpdate.user
-                } yield Im(id, userId, Option(slackUpdate))).get
-
-              common.chat.UserChat(im.id, sourceType, transformSlackUserToCommon(user.get))
+              val im = findOrCacheImById(channelId, Im(channelId, userId, Option(update)))
+              common.chat.UserChat(im.id, sourceType, transformSlackUserToCommon(user))
           }
           val commonMessage = incoming.TextMessage(chat, text)
           botRef ! commonMessage
-        case _ =>
+        case None => log.info(s"Unable to find user with id: $userId")
       }
-    case _ => throw new IllegalArgumentException("Wrong message type for this source")
+    case TeamJoin(user: User) => integrationInfo = integrationInfo.copy(users = integrationInfo.users :+ user)
+    case UnexpectedMessage(subtype, _) => log.info(s"unexpected type of message: $subtype")
+    case UnexpectedEvent(messageType, json) => log.debug(s"unexpected event: $messageType, with json: $json")
+    case _ =>
   }
 
-  private def getHostAndPath(url: String): (String, String) = {
-    val withoutProtocol = url drop 6
-    val host = (withoutProtocol split '/') (0)
-    (host, withoutProtocol.drop(host.length))
-  }
-
-  private def openConnection(): Unit = client.post[StartResponse](id, "rtm.start", Map("token" -> id)) foreach
-    (response => {
-      integrationInfo = response
-      val (host, path) = getHostAndPath(response.url)
-      webSocket ! Connect(host, 443, path, withSsl = true)
-    })
-
-  private def getChannelMembers(channel: Channel): Seq[common.chat.User] = channel.members
-    .map(membersList =>
-      membersList
-        .map(memberId => findUserById(Some(memberId)))
-        .filter(maybeUser => maybeUser.isDefined)
-        .map(user => transformSlackUserToCommon(user.get))).getOrElse(Seq.empty)
+  private def getChannelMembers(channel: Channel): Seq[common.chat.User] = channel.members.map(membersList => {
+      membersList.foldLeft(Seq.empty[common.chat.User]) {
+        case (result, userId) => findUserById(userId) match {
+          case Some(user) => result :+ transformSlackUserToCommon(user)
+          case None => result
+        }
+      }
+    }).getOrElse(Seq.empty)
 
   private def transformSlackUserToCommon(slackUser: slack.User): common.chat.User = {
     val firstName = slackUser.profile match {
@@ -113,28 +98,32 @@ class SlackSource(config: Config) extends common.Source {
     common.chat.User(firstName + " " + lastName.getOrElse(""), Some(slackUser.name))
   }
 
-  private def findChannelById(channelIdOpt: Option[String]): Option[Channel] = channelIdOpt match {
-    case Some(channelId) => integrationInfo.channels.find(storeChannel => storeChannel.id == channelId)
-    case _ => None
+  private def findChannelById(channelId: String): Option[Channel] =
+    integrationInfo.channels.find(storeChannel => storeChannel.id == channelId)
+
+  private def findOrCacheImById(imId: String, newIm: => Im): Im = {
+    integrationInfo.ims.find(storeIm => storeIm.id == imId).getOrElse({
+      integrationInfo = integrationInfo.copy(ims = integrationInfo.ims :+ newIm)
+      newIm
+    })
   }
 
-  private def findOrCacheImById(imIdOpt: Option[String], newIm: => Option[Im]): Option[Im] = imIdOpt match {
-    case Some(imId) =>
-      integrationInfo.ims.find(storeIm => storeIm.id == imId).orElse {
-        newIm match {
-          case Some(im) =>
-            integrationInfo = integrationInfo.copy(ims = integrationInfo.ims :+ im)
-            newIm
-          case _ => newIm
-        }
-      }
-    case _ => None
+  private def findUserById(userId: String): Option[slack.User] = {
+    integrationInfo.users.find(storeUser => storeUser.id == userId)
   }
 
-  private def findUserById(userIdOpt: Option[String]): Option[slack.User] = userIdOpt match {
-    case Some(userId) => integrationInfo.users.find(storeUser => storeUser.id == userId)
-    case _ => None
+  private def getHostAndPath(url: String): (String, String) = {
+    val withoutProtocol = url drop 6
+    val host = (withoutProtocol split '/') (0)
+    (host, withoutProtocol.drop(host.length))
   }
+
+  private def openConnection(): Unit = client.post[StartResponse](id, "rtm.start", Map("token" -> id)).foreach(response => {
+      integrationInfo = response
+      val (host, path) = getHostAndPath(response.url)
+      webSocket ! Connect(host, 443, path, withSsl = true)
+    }
+  )
 
   private final case class SlackApiClient(private val id: String)(override implicit val actorSystem: ActorSystem) extends ApiClient {
     type TIn = Map[String, String]

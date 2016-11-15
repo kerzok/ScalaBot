@@ -16,13 +16,14 @@
 
 package scalabot.slack
 
-import scalabot.common.message.incoming.SourceMessage
-
 /**
   * Created by Nikolay.Smelik on 7/8/2016.
   */
 
-trait BaseChannel {val id: String}
+trait BaseChannel {
+  val id: String
+}
+
 case class Channel(override val id: String,
                    creator: String,
                    name: String,
@@ -32,7 +33,7 @@ case class Channel(override val id: String,
 
 case class Im(override val id: String,
               user: String,
-              latest: Option[Update]) extends BaseChannel
+              latest: Option[SlackUpdate]) extends BaseChannel
 
 case class ChannelInfo(value: String,
                        creator: String,
@@ -65,6 +66,9 @@ case class Profile(first_name: String,
                    skype: String,
                    phone: String)
 
+case class Bot(id: String,
+               name: String)
+
 case class Self(id: String,
                 name: String)
 
@@ -77,14 +81,21 @@ case class StartResponse(ok: Boolean,
                          ims: Seq[Im],
                          bots: Seq[User])
 
-case class Update(`type`: String,
-                  url: Option[String] = None,
-                  channel: Option[String] = None,
-                  user: Option[String] = None,
-                  text: Option[String] = None,
-                  team: Option[String] = None) extends SourceMessage
+case class ChannelRenameInfo(id: String,
+                             name: String,
+                             created: Long)
+
+case class DndStatus(dndEnabled: Boolean,
+                     nextDndStartTs: Long,
+                     nextDndEndTs: Long,
+                     snoozeEnabled: Boolean,
+                     snoozeEndtime: Long)
+
 
 case class Response(id: Int,
                     `type`: String,
                     channel: String,
                     text: String)
+
+case class Error(code: Int,
+                 msg: String)

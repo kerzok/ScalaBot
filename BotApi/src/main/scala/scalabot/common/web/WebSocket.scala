@@ -16,12 +16,9 @@
 
 package scalabot.common.web
 
-import akka.actor.{Actor, ActorRef, ActorSystem, PoisonPill}
+import akka.actor.{Actor, ActorRef, ActorSystem}
 import akka.io.IO
 import org.json4s.native.JsonMethods._
-
-import scalabot.Implicits._
-import scalabot.{common, slack}
 import spray.can.Http
 import spray.can.server.UHttp
 import spray.can.websocket.WebSocketClientWorker
@@ -29,11 +26,14 @@ import spray.can.websocket.frame.{CloseFrame, StatusCode, TextFrame}
 import spray.http.{HttpHeaders, HttpMethods, HttpRequest}
 
 import scala.util.Try
+import scalabot.common
+import scalabot.slack.SlackUpdate
 
 /**
   * Created by Nikolay.Smelik on 7/12/2016.
   */
 case class WebSocket(sourceRef: ActorRef) extends Actor with WebSocketClientWorker {
+  implicit val formats = SlackUpdate.formats
   private[this] val defaultWebSocketKey = "MTAxMTAwMDEwMDExMTAwMTEwMTEwMDExMDAwMDAwMTAxMTEwMDAxMTEwMDEwMDAwMDAxMDAwMTAxMDEwMDAwMTAxMDAwMDEwMDExMTAwMTExMDAxMDAxMTAxMDEwMDEwMTAwMDEwMDAwMDExMDAxMTExMDAwMTExMTEwMDAwMTENCg=="
   override def receive = connect orElse handshaking orElse closeLogic
 
@@ -52,15 +52,8 @@ case class WebSocket(sourceRef: ActorRef) extends Actor with WebSocketClientWork
   override def businessLogic = {
     case WebSocketHelper.Release => close()
     case TextFrame(msg) =>
-      val stringMessage = msg.utf8String
-      if (stringMessage.contains("reply_to")) {
-        sourceRef ! None
-      } else if (stringMessage.contains("type")) {
-        val update = parse(stringMessage).extract[slack.Update]
-        sourceRef ! update
-      } else {
-        sourceRef ! stringMessage
-      }
+      val update = parse(msg.utf8String).extract[SlackUpdate]
+      sourceRef ! update
     case WebSocketHelper.Send(message) =>
       send(message)
     case ignoreThis => // ignore
