@@ -18,7 +18,7 @@ package scalabot.slack
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import akka.actor.{ActorLogging, ActorRef, ActorSystem, Props}
+import akka.actor.{ActorLogging, ActorRef, ActorSystem, Props, Cancellable}
 import akka.contrib.throttle.TimerBasedThrottler
 import akka.contrib.throttle.Throttler.{RateInt, SetTarget}
 import com.typesafe.config.Config
@@ -30,7 +30,6 @@ import scalabot.common.ApiClient
 import scalabot.common.message.incoming.SourceMessage
 import scalabot.common.message.{incoming, outcoming}
 import scalabot.common.web.WebSocket
-import scalabot.common.web.WebSocketHelper.{Connect, Send}
 import scalabot.{common, slack}
 import spray.http.{HttpMethod, HttpRequest, Uri}
 
@@ -47,22 +46,53 @@ class SlackSource(config: Config) extends common.Source with ActorLogging {
   override val id: String = Try(config.getString("id")).toOption getOrElse (throw new IllegalArgumentException("Slack id is not defined in config"))
   private[this] val counter: AtomicInteger = new AtomicInteger(0)
   private[this] val client: SlackApiClient = SlackApiClient(id)(context.system)
-  private[this] val webSocket = context.actorOf(Props(classOf[WebSocket], self), s"${sourceType}Websocket")
-  private[this] val throttler = context.actorOf(Props(classOf[TimerBasedThrottler], 1.msgsPerSecond))
+  //private[this] var webSocketConnection: WebSocket = _
+  private[this] var webSocket: Option[ActorRef] = _
+  private[this] val throttler: ActorRef = context.actorOf(Props(classOf[TimerBasedThrottler], 30.msgsPerSecond))
   private[this] var integrationInfo: StartResponse = _
+  private[this] var lastPing: Ping = Ping(0)
+  private[this] var lastPong: Pong = Pong(0)
+  private[this] var pingPongScheduler: Option[Cancellable] = None
+  private[this] var reconnectUrl: Option[ReconnectUrl] = None
   openConnection()
-  throttler ! SetTarget(Some(webSocket))
+
+  implicit val formats = scalabot.slack.SlackUpdate.formats
 
   override def sendReply(message: outcoming.OutgoingMessage, to: common.chat.Chat): Unit = {
     val id = counter.incrementAndGet()
     message match {
-      case textMessage: outcoming.TextMessage =>
-        val responseToSend = pretty(render(Extraction.decompose(Response(id, "message", to.id, textMessage.value))))
-        throttler ! Send(responseToSend)
+      case outcoming.TextMessage(text) =>
+        throttler ! TextMessageResponse(id, to.id, text)
     }
   }
 
+  private def sendPing(): Unit = {
+    val id = counter.incrementAndGet()
+    lastPing = Ping(id)
+    webSocket.foreach(_ ! lastPing)
+  }
+
+  private def runPingPong(): Unit = {
+    pingPongScheduler = Some(context.system.scheduler.schedule(5 seconds, 5 seconds, new Runnable {
+      override def run(): Unit = {
+        if (lastPing.id == lastPong.replyTo) {
+          sendPing()
+        } else {
+          log.warning("Slack server not responding within 5 seconds. Trying to reconnect...")
+          restartWebsocket()
+        }
+      }
+    }))
+  }
+
   override protected def handleUpdate[T <: SourceMessage](update: T): Unit = update match {
+    case ConnectionEstablished(ref) =>
+      webSocket = Some(ref)
+      throttler ! SetTarget(webSocket)
+    case pong: Pong => lastPong = pong
+    case url: ReconnectUrl => reconnectUrl = Some(url)
+    case TextMessage(channelId, userId, "close", _, None) =>
+      throttler ! Disconnect
     case update@TextMessage(channelId, userId, text, _, None) =>
       val channelOpt = findChannelById(channelId)
       findUserById(userId) match {
@@ -82,8 +112,12 @@ class SlackSource(config: Config) extends common.Source with ActorLogging {
     case TeamJoin(user: User) => integrationInfo = integrationInfo.copy(users = integrationInfo.users :+ user)
     case UnexpectedMessage(subtype, _) => log.info(s"unexpected type of message: $subtype")
     case UnexpectedEvent(messageType, json) => log.debug(s"unexpected event: $messageType, with json: $json")
-    case Hello => log.info("Slack websoket start.")
-    case Goodbye => log.info("Slack websocket is going to close. ")
+    case Hello =>
+      log.info("Slack websoket start.")
+      runPingPong()
+    /*case Goodbye | Disconnect =>
+      log.info("Slack websocket is going to close. ")
+      restartWebsocket()*/
     case ResponseMessage(false, _, _, Some(error)) =>
       log.info(s"Sending message to Slack finish with error. Error code: ${error.code}. Error message: ${error.msg}")
     case _ =>
@@ -121,16 +155,22 @@ class SlackSource(config: Config) extends common.Source with ActorLogging {
     integrationInfo.users.find(storeUser => storeUser.id == userId)
   }
 
-  private def getHostAndPath(url: String): (String, String) = {
-    val withoutProtocol = url drop 6
-    val host = (withoutProtocol split '/') (0)
-    (host, withoutProtocol.drop(host.length))
+  private def restartWebsocket(): Unit = {
+    pingPongScheduler.map(_.cancel())
+    webSocket.foreach(_ ! Disconnect)
+    context.system.scheduler.scheduleOnce(20 seconds, new Runnable {
+      override def run(): Unit = {
+        reconnectUrl match {
+          case Some(ReconnectUrl(url)) => WebSocket(url, self)(context.system)
+          case None => openConnection()
+        }
+      }
+    })
   }
 
   private def openConnection(): Unit = client.post[StartResponse](id, "rtm.start", Map("token" -> id)).foreach(response => {
-      integrationInfo = response
-      val (host, path) = getHostAndPath(response.url)
-      webSocket ! Connect(host, 443, path, withSsl = true)
+    integrationInfo = response
+      WebSocket(response.url, self)(context.system)
     }
   )
 

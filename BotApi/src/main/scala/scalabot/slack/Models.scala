@@ -91,11 +91,5 @@ case class DndStatus(dndEnabled: Boolean,
                      snoozeEnabled: Boolean,
                      snoozeEndtime: Long)
 
-
-case class Response(id: Int,
-                    `type`: String,
-                    channel: String,
-                    text: String)
-
 case class Error(code: Int,
                  msg: String)

@@ -1,16 +1,25 @@
 package scalabot.slack
 
+import akka.actor.ActorRef
 import org.json4s.JsonAST.{JField, JString}
 import org.json4s._
 import org.json4s.native.Serialization.write
+import org.json4s.JsonDSL._
 
 import scalabot.common.message.incoming.SourceMessage
+import org.json4s.Extraction
+import org.json4s.native.JsonMethods._
 
 /**
   * Created by kerzo on 15.11.2016.
   */
 
-sealed trait SlackUpdate extends SourceMessage
+sealed trait SlackUpdate extends SourceMessage {
+  def toStringJson: String = {
+    implicit val formats = SlackUpdate.formats
+    pretty(render(Extraction.decompose(this)))
+  }
+}
 
 
 case object Goodbye extends SlackUpdate
@@ -111,6 +120,14 @@ case class ResponseMessage(ok: Boolean,
                            ts: Option[String] = None,
                            error: Option[Error] = None) extends SlackUpdate
 
+case class Ping(id: Int) extends SlackUpdate
+case class Pong(replyTo: Int) extends SlackUpdate
+case class TextMessageResponse(id: Int, channel: String, text: String) extends SlackUpdate
+
+case object Disconnect extends SlackUpdate
+case class ConnectionEstablished(ref: ActorRef) extends SlackUpdate
+case class ReconnectUrl(url: String) extends SlackUpdate
+
 case object SlackUpdate {
   implicit lazy val formats = DefaultFormats + SlackUpdateSerializer + MessageSerializer
 
@@ -123,6 +140,8 @@ case object SlackUpdate {
   object MessageSerializer extends CustomSerializer[Message](format => ({
     case json: JValue => SlackUpdate.parseMessage(json)
   }, {
+    case Ping(id) => ("id" -> id) ~ ("type" -> "ping")
+    case TextMessageResponse(id, channel, text) => ("type" -> "message") ~ ("id" -> id) ~ ("channel" -> channel) ~ ("text" -> text)
     case message: Message => Extraction.decompose(message)
   }))
 
@@ -133,6 +152,8 @@ case object SlackUpdate {
       case jValue@JString("hello") => Hello
       case jValue@JString("message") => json.removeField(_ == JField("type", jValue)).camelizeKeys.extract[Message]
       case jValue@JString("team_join") => json.removeField(_ == JField("type", jValue)).camelizeKeys.extract[TeamJoin]
+      case jValue@JString("pong") => json.removeField(_ == JField("type", jValue)).camelizeKeys.extract[Pong]
+      case jValue@JString("reconnect_url") => json.removeField(_ == JField("type", jValue)).camelizeKeys.extract[ReconnectUrl]
       case jValue@JString(messageType) => UnexpectedEvent(messageType)
       case JNothing => json \ "ok" match {
         case JBool(value) => json.camelizeKeys.extract[ResponseMessage]

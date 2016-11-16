@@ -17,75 +17,68 @@
 package scalabot.common.web
 
 import akka.actor.{Actor, ActorRef, ActorSystem}
-import akka.io.IO
+import akka.http.scaladsl.model.ws.WebSocketRequest
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.ws.{Message, TextMessage}
+import akka.stream._
+import akka.stream.scaladsl.{Flow, GraphDSL, Merge, Sink, Source}
+import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import org.json4s.native.JsonMethods._
-import spray.can.Http
-import spray.can.server.UHttp
-import spray.can.websocket.WebSocketClientWorker
-import spray.can.websocket.frame.{CloseFrame, StatusCode, TextFrame}
-import spray.http.{HttpHeaders, HttpMethods, HttpRequest}
 
-import scala.util.Try
-import scalabot.common
-import scalabot.slack.SlackUpdate
+import scalabot.slack._
+
 
 /**
   * Created by Nikolay.Smelik on 7/12/2016.
   */
-case class WebSocket(sourceRef: ActorRef) extends Actor with WebSocketClientWorker {
+case class WebSocket(url: String, sourceRef: ActorRef)(implicit val actorSystem: ActorSystem) {
+  implicit val materializer = ActorMaterializer()
+  import actorSystem.dispatcher
   implicit val formats = SlackUpdate.formats
-  private[this] val defaultWebSocketKey = "MTAxMTAwMDEwMDExMTAwMTEwMTEwMDExMDAwMDAwMTAxMTEwMDAxMTEwMDEwMDAwMDAxMDAwMTAxMDEwMDAwMTAxMDAwMDEwMDExMTAwMTExMDAxMDAxMTAxMDEwMDEwMTAwMDEwMDAwMDExMDAxMTExMDAwMTExMTEwMDAwMTENCg=="
-  override def receive = connect orElse handshaking orElse closeLogic
 
-  private def connect(): Receive = {
-    case WebSocketHelper.Connect(host, port, resource, ssl) =>
-      val headers = List(
-        HttpHeaders.Host(host, port),
-        HttpHeaders.Connection("Upgrade"),
-        HttpHeaders.RawHeader("Upgrade", "websocket"),
-        HttpHeaders.RawHeader("Sec-WebSocket-Version", "13"),
-        HttpHeaders.RawHeader("Sec-WebSocket-Key", Try(common.BotConfig.get("api.slack.webSocketKey")).toOption getOrElse defaultWebSocketKey))
-      request = HttpRequest(HttpMethods.GET, resource, headers)
-      IO(UHttp)(ActorSystem("websocket")) ! Http.Connect(host, port, ssl)
+  val webSocketFlow = Http().singleWebSocketRequest(WebSocketRequest(url), flow())
+  def flow(): Flow[Message, Message, _] = {
+    Flow.fromGraph(GraphDSL.create(Source.actorRef[SlackUpdate](100, OverflowStrategy.fail)) {
+      implicit builder => slackSource =>
+        import GraphDSL.Implicits._
+
+        val materialization = builder.materializedValue.map(slackServerRef => ConnectionEstablished(slackServerRef))
+
+        val merge = builder.add(Merge[SlackUpdate](2))
+        val messageToSlackUpdateFlow = builder.add(Flow[Message].collect {
+          case TextMessage.Strict(text) =>
+            parse(text).extract[SlackUpdate]
+        })
+        val slackUpdateToMessageFlow = builder.add(Flow[SlackUpdate].collect {
+          case update: SlackUpdate => TextMessage.Strict(update.toStringJson)
+        })
+        val closeStage = builder.add(getCloseStage)
+
+        val sink = Sink.actorRef[SlackUpdate](sourceRef, Disconnect)
+        materialization ~> merge ~> sink
+        messageToSlackUpdateFlow ~> merge
+        slackSource ~> closeStage ~> slackUpdateToMessageFlow
+        FlowShape(messageToSlackUpdateFlow.in, slackUpdateToMessageFlow.out)
+    })
   }
 
-  override def businessLogic = {
-    case WebSocketHelper.Release => close()
-    case TextFrame(msg) =>
-      val update = parse(msg.utf8String).extract[SlackUpdate]
-      sourceRef ! update
-    case WebSocketHelper.Send(message) =>
-      send(message)
-    case ignoreThis => // ignore
+  def getCloseStage = new GraphStage[FlowShape[SlackUpdate, SlackUpdate]] {
+    val in = Inlet[SlackUpdate]("closeStage.in")
+    val out = Outlet[SlackUpdate]("closeStage.out")
+
+    override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = new GraphStageLogic(shape) {
+      setHandler(in, new InHandler {
+        override def onPush(): Unit = grab(in) match {
+          case Disconnect => completeStage()
+          case msg => push(out, msg)
+        }
+      })
+      setHandler(out, new OutHandler {
+        override def onPull(): Unit = pull(in)
+      })
+    }
+
+    override def shape: Shape = FlowShape.of(in, out)
   }
-
-  def send(message: String) = connection ! TextFrame(message)
-
-  def close() = if (connection != null) connection ! CloseFrame(StatusCode.NormalClose)
-
-  private var request: HttpRequest = _
-
-  override def upgradeRequest = request
-
-  @scala.throws[Exception](classOf[Exception])
-  override def postStop(): Unit = {
-    close()
-  }
-
 }
 
-object WebSocketHelper {
-
-  sealed trait WebSocketMessage
-
-  case class Connect(
-                      host: String,
-                      port: Int,
-                      resource: String,
-                      withSsl: Boolean = false) extends WebSocketMessage
-
-  case class Send(msg: String) extends WebSocketMessage
-
-  case object Release extends WebSocketMessage
-
-}
