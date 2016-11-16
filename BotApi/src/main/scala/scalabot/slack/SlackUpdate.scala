@@ -23,10 +23,13 @@ class Message(user: String,
               text: String,
               ts: String) extends SlackUpdate
 
+case object EmptyMessage extends SlackUpdate
+
 case class TextMessage(channel: String,
                        user: String,
                        text: String,
-                       ts: String) extends Message(user, text, ts)
+                       ts: String,
+                       replyTo: Option[String] = None) extends Message(user, text, ts)
 
 case class BotMessage(botId: String,
                       username: Option[String] = None,
@@ -105,7 +108,7 @@ case class TeamJoin(user: User) extends SlackUpdate
 
 case class ResponseMessage(ok: Boolean,
                            replyTo: Int,
-                           ts: String,
+                           ts: Option[String] = None,
                            error: Option[Error] = None) extends SlackUpdate
 
 case object SlackUpdate {

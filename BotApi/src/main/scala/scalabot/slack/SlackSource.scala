@@ -19,6 +19,8 @@ package scalabot.slack
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.{ActorLogging, ActorRef, ActorSystem, Props}
+import akka.contrib.throttle.TimerBasedThrottler
+import akka.contrib.throttle.Throttler.{RateInt, SetTarget}
 import com.typesafe.config.Config
 import org.json4s.Extraction
 import org.json4s.native.JsonMethods._
@@ -32,6 +34,7 @@ import scalabot.common.web.WebSocketHelper.{Connect, Send}
 import scalabot.{common, slack}
 import spray.http.{HttpMethod, HttpRequest, Uri}
 
+import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.Try
@@ -45,20 +48,22 @@ class SlackSource(config: Config) extends common.Source with ActorLogging {
   private[this] val counter: AtomicInteger = new AtomicInteger(0)
   private[this] val client: SlackApiClient = SlackApiClient(id)(context.system)
   private[this] val webSocket = context.actorOf(Props(classOf[WebSocket], self), s"${sourceType}Websocket")
+  private[this] val throttler = context.actorOf(Props(classOf[TimerBasedThrottler], 1.msgsPerSecond))
   private[this] var integrationInfo: StartResponse = _
   openConnection()
+  throttler ! SetTarget(Some(webSocket))
 
   override def sendReply(message: outcoming.OutgoingMessage, to: common.chat.Chat): Unit = {
     val id = counter.incrementAndGet()
     message match {
       case textMessage: outcoming.TextMessage =>
         val responseToSend = pretty(render(Extraction.decompose(Response(id, "message", to.id, textMessage.value))))
-        webSocket ! Send(responseToSend)
+        throttler ! Send(responseToSend)
     }
   }
 
   override protected def handleUpdate[T <: SourceMessage](update: T): Unit = update match {
-    case update@TextMessage(channelId, userId, text, _) =>
+    case update@TextMessage(channelId, userId, text, _, None) =>
       val channelOpt = findChannelById(channelId)
       findUserById(userId) match {
         case Some(user) =>
@@ -77,6 +82,10 @@ class SlackSource(config: Config) extends common.Source with ActorLogging {
     case TeamJoin(user: User) => integrationInfo = integrationInfo.copy(users = integrationInfo.users :+ user)
     case UnexpectedMessage(subtype, _) => log.info(s"unexpected type of message: $subtype")
     case UnexpectedEvent(messageType, json) => log.debug(s"unexpected event: $messageType, with json: $json")
+    case Hello => log.info("Slack websoket start.")
+    case Goodbye => log.info("Slack websocket is going to close. ")
+    case ResponseMessage(false, _, _, Some(error)) =>
+      log.info(s"Sending message to Slack finish with error. Error code: ${error.code}. Error message: ${error.msg}")
     case _ =>
   }
 

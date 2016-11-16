@@ -17,6 +17,7 @@
 package scalabot.examples.echo
 
 import scalabot.common.bot._
+import scalabot.common.chat.Chat
 import scalabot.common.message.{Intent, ReplyMessageIntent, TextIntent}
 
 /**
@@ -37,7 +38,11 @@ class EchoBot extends AbstractBot[EmptyData] {
 
   case class EchoConversation() extends Conversation {
     override def initialState: BotState = BotState {
-      case intent: TextIntent => Reply(Exit).withIntent(ReplyMessageIntent(intent.sender, intent.text))
+      case intent: TextIntent => Reply(Exit).withIntent(getIntents(intent.sender, intent.text))
     }
+  }
+
+  def getIntents(sender: Chat, text: String): Seq[Intent] = {
+    (1 to 21).map(_ => ReplyMessageIntent(sender, text))
   }
 }

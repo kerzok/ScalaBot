@@ -15,6 +15,7 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka"          %% "akka-testkit"             % akkaVersion % "test",
   "com.typesafe.akka"          %% "akka-http-core"           % akkaHttpVersion,
   "com.typesafe.akka"          %% "akka-http"                % akkaHttpVersion,
+  "com.typesafe.akka"           % "akka-contrib_2.11"        % akkaVersion,
   "com.enragedginger"          %% "akka-quartz-scheduler"    % "1.5.0-akka-2.4.x",
   "io.spray"                   %% "spray-client"             % sprayVersion,
   "io.spray"                    % "spray-caching_2.11"       % sprayVersion,
