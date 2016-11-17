@@ -43,6 +43,6 @@ class EchoBot extends AbstractBot[EmptyData] {
   }
 
   def getIntents(sender: Chat, text: String): Seq[Intent] = {
-    (1 to 21).map(_ => ReplyMessageIntent(sender, text))
+    (1 to 21).map(value => ReplyMessageIntent(sender, value.toString))
   }
 }

@@ -41,6 +41,21 @@ trait Source extends Actor with ActorLogging {
     case _ => //ignore
   }
 
+  protected def become(newHandler: SourceMessage => Unit) = {
+    context.become({
+      case update: SourceMessage => Try(newHandler(update)) match {
+        case Failure(ex) => log.error(ex, s"Some error occur in $sourceType. error: $ex")
+        case _ => //ignore
+      }
+      case (message: OutgoingMessage, to: common.chat.Chat) => sendReply(message, to)
+      case _ => //ignore
+    })
+  }
+
+  protected def unbecome() = {
+    context.unbecome()
+  }
+
   protected def sendReply(message: OutgoingMessage, to: Chat): Unit
   protected def handleUpdate[T <: SourceMessage](update: T): Unit
 }

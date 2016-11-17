@@ -20,16 +20,13 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.{ActorLogging, ActorRef, ActorSystem, Cancellable, Props}
 import akka.contrib.throttle.TimerBasedThrottler
-import akka.contrib.throttle.Throttler.{RateInt, SetTarget}
+import akka.contrib.throttle.Throttler.{RateInt, SetRate, SetTarget}
 import com.typesafe.config.Config
-import org.json4s.Extraction
 import org.json4s.native.JsonMethods._
 
-import scalabot.Implicits._
 import scalabot.common.ApiClient
 import scalabot.common.message.incoming.SourceMessage
 import scalabot.common.message.{incoming, outcoming}
-import scalabot.common.web.WebSocket
 import scalabot.{common, slack}
 import spray.http.{HttpMethod, HttpRequest, Uri}
 
@@ -44,25 +41,35 @@ import scala.util.{Failure, Success, Try}
 class SlackSource(config: Config) extends common.Source with ActorLogging {
   override val sourceType: String = getClass.getSimpleName
   override val id: String = Try(config.getString("id")).toOption getOrElse (throw new IllegalArgumentException("Slack id is not defined in config"))
+  private[this] val defaultThrottlingRate = 20.msgsPerSecond
+  private[this] val slowThrottlingRate = 1.msgsPerSecond
   private[this] val counter: AtomicInteger = new AtomicInteger(0)
   private[this] val client: SlackApiClient = SlackApiClient(id)(context.system)
-  private[this] val throttler: ActorRef = context.actorOf(Props(classOf[TimerBasedThrottler], 30.msgsPerSecond))
-  private[this] var webSocket: Option[ActorRef] = _
+  private[this] val throttler: ActorRef = context.actorOf(Props(classOf[TimerBasedThrottler], defaultThrottlingRate))
+  implicit val formats = scalabot.slack.SlackUpdate.formats
+
+  private[this] var webSocket: Option[ActorRef] = None
   private[this] var integrationInfo: StartResponse = _
-  private[this] var lastPing: Ping = Ping(0)
-  private[this] var lastPong: Pong = Pong(0)
+  private[this] var lastPing: Ping = Ping(counter.get())
+  private[this] var lastPong: Pong = Pong(counter.get())
   private[this] var pingPongScheduler: Option[Cancellable] = None
-  private[this] var reconnectUrl: Option[ReconnectUrl] = None
+
+  private[this] var messageStorage: Map[Int, SlackUpdate] = Map.empty
   openConnection()
 
-  implicit val formats = scalabot.slack.SlackUpdate.formats
 
   override def sendReply(message: outcoming.OutgoingMessage, to: common.chat.Chat): Unit = {
     val id = counter.incrementAndGet()
     message match {
       case outcoming.TextMessage(text) =>
-        throttler ! TextMessageResponse(id, to.id, text)
+        val message = TextMessageResponse(id, to.id, text)
+        messageStorage += (id -> message)
+        throttler ! message
     }
+  }
+
+  private def retrySendMessage(id: Int) = {
+    messageStorage.get(id).foreach(throttler ! _)
   }
 
   private def sendPing(): Unit = {
@@ -72,7 +79,9 @@ class SlackSource(config: Config) extends common.Source with ActorLogging {
   }
 
   private def runPingPong(): Unit = {
-    pingPongScheduler = Some(context.system.scheduler.schedule(5 seconds, 5 seconds, new Runnable {
+    lastPing = Ping(counter.get())
+    lastPong = Pong(counter.get())
+    pingPongScheduler = Some(context.system.scheduler.schedule(5 seconds, 10 seconds, new Runnable {
       override def run(): Unit = {
         if (lastPing.id == lastPong.replyTo) {
           sendPing()
@@ -84,11 +93,25 @@ class SlackSource(config: Config) extends common.Source with ActorLogging {
     }))
   }
 
+  def initialHandler[T <: SourceMessage](update: T): Unit = update match {
+    case ConnectionEstablished(ref) =>
+      log.info("WebSocket connection established.")
+      webSocket = Some(ref)
+      throttler ! SetTarget(webSocket)
+    case Hello =>
+      log.info("The client has successfully connected to the Slack server.")
+      messageStorage.values.foreach(throttler ! _)
+      runPingPong()
+      context.unbecome()
+  }
+
   override protected def handleUpdate[T <: SourceMessage](update: T): Unit = update match {
+    case pong: Pong => lastPong = pong
+    case TeamJoin(user: User) => integrationInfo = integrationInfo.copy(users = integrationInfo.users :+ user)
     case update@TextMessage(channelId, userId, text, _, None) =>
       val channelOpt = findChannelById(channelId)
       findUserById(userId) match {
-        case Some(user) if !user.is_bot.getOrElse(false) =>
+        case Some(user) if !user.isBot.getOrElse(false) =>
           val chat = channelOpt match {
             case Some(channel) =>
               val members = getChannelMembers(channel)
@@ -102,22 +125,24 @@ class SlackSource(config: Config) extends common.Source with ActorLogging {
         case None => log.info(s"Unable to find user with id: $userId")
         case Some(user) =>
       }
-    case ConnectionEstablished(ref) =>
-      log.info("WebSocket connection established.")
-      webSocket = Some(ref)
-      throttler ! SetTarget(webSocket)
-    case pong: Pong => lastPong = pong
-    case url: ReconnectUrl => reconnectUrl = Some(url)
-    case TeamJoin(user: User) => integrationInfo = integrationInfo.copy(users = integrationInfo.users :+ user)
-    case UnexpectedMessage(subtype, _) => log.info(s"unexpected type of message: $subtype")
-    case UnexpectedEvent(messageType, json) => log.debug(s"unexpected event: $messageType, with json: $json")
+    case ResponseMessage(true, replyTo, _, _) =>
+      messageStorage -= replyTo
+    case ResponseMessage(false, replyTo, _, Some(Error(-1, _))) =>
+      throttler ! SetRate(slowThrottlingRate)
+      retrySendMessage(replyTo)
+      context.system.scheduler.scheduleOnce(1 minute, new Runnable {
+        override def run(): Unit = {
+          throttler ! SetRate(defaultThrottlingRate)
+        }
+      })
+    case ResponseMessage(false, _, _, Some(error)) =>
+      log.info(s"Sending message to Slack finish with error. Error code: ${error.code}. Error message: ${error.msg}")
     case ErrorMessage(error) =>
       log.warning(s"Slack server respond with error: Error code: ${error.code}. Error message: ${error.msg}")
       webSocket.foreach(_ ! Disconnect)
       restartWebSocket()
-    case Hello =>
-      log.info("Slack websoket start.")
-      runPingPong()
+    case UnexpectedMessage(subtype, _) => log.info(s"unexpected type of message: $subtype")
+    case UnexpectedEvent(messageType, json) => log.debug(s"unexpected event: $messageType, with json: $json")
     case Goodbye =>
       log.info("Slack websocket is going to close. ")
       webSocket.foreach(_ ! Disconnect)
@@ -125,26 +150,24 @@ class SlackSource(config: Config) extends common.Source with ActorLogging {
     case Disconnect =>
       log.info("Slack WebSocket closed. restarting")
       restartWebSocket()
-    case ResponseMessage(false, _, _, Some(error)) =>
-      log.info(s"Sending message to Slack finish with error. Error code: ${error.code}. Error message: ${error.msg}")
     case _ =>
   }
 
   private def getChannelMembers(channel: Channel): Seq[common.chat.User] = channel.members.map(membersList => {
-      membersList.foldLeft(Seq.empty[common.chat.User]) {
-        case (result, userId) => findUserById(userId) match {
-          case Some(user) => result :+ transformSlackUserToCommon(user)
-          case None => result
-        }
+    membersList.foldLeft(Seq.empty[common.chat.User]) {
+      case (result, userId) => findUserById(userId) match {
+        case Some(user) => result :+ transformSlackUserToCommon(user)
+        case None => result
       }
-    }).getOrElse(Seq.empty)
+    }
+  }).getOrElse(Seq.empty)
 
   private def transformSlackUserToCommon(slackUser: slack.User): common.chat.User = {
     val firstName = slackUser.profile match {
-      case Some(profile) => profile.first_name
+      case Some(profile) => profile.firstName
       case None => slackUser.name
     }
-    val lastName = slackUser.profile.map(profile => profile.last_name)
+    val lastName = slackUser.profile.map(profile => profile.lastName)
     common.chat.User(firstName + " " + lastName.getOrElse(""), Some(slackUser.name))
   }
 
@@ -167,10 +190,6 @@ class SlackSource(config: Config) extends common.Source with ActorLogging {
     context.system.scheduler.scheduleOnce(1 seconds, new Runnable {
       override def run(): Unit = {
         openConnection()
-        /*reconnectUrl match {
-          case Some(ReconnectUrl(url)) => WebSocket(url, self)(context.system)
-          case None => openConnection()
-        }*/
       }
     })
   }
@@ -178,6 +197,7 @@ class SlackSource(config: Config) extends common.Source with ActorLogging {
   private def openConnection(): Unit = client.post[StartResponse](id, "rtm.start", Map("token" -> id)).onComplete {
     case Success(response) =>
       integrationInfo = response
+      become(initialHandler)
       WebSocket(response.url, self)(context.system)
     case Failure(ex) =>
       log.warning("Unable to get integration info from Slack. Finish SlackSource")
@@ -193,7 +213,7 @@ class SlackSource(config: Config) extends common.Source with ActorLogging {
     override protected def request[TOut](method: HttpMethod, id: String, endpoint: String, params: TIn)(implicit manifest: Manifest[TOut]): Future[TOut] =
       pipeline(HttpRequest(method, Uri(apiUrl(endpoint)).withQuery(params)))
         .map(_.entity.asString)
-        .map(value => parse(value).extract[TOut])
+        .map(value => parse(value).camelizeKeys.extract[TOut])
   }
 
 }

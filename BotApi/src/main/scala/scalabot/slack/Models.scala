@@ -28,7 +28,7 @@ case class Channel(override val id: String,
                    creator: String,
                    name: String,
                    topic: Option[ChannelInfo],
-                   unread_count: Option[Int],
+                   unreadCount: Option[Int],
                    members: Option[List[String]]) extends BaseChannel
 
 case class Im(override val id: String,
@@ -37,31 +37,31 @@ case class Im(override val id: String,
 
 case class ChannelInfo(value: String,
                        creator: String,
-                       last_set: Long)
+                       lastSet: Long)
 
 case class DirectChannel(id: String,
                          userId: String)
 
 case class Team(id: String,
                 name: String,
-                email_domain: String,
+                emailDomain: String,
                 domain: String)
 
 case class User(id: String,
                 name: String,
                 deleted: Boolean,
-                is_admin: Option[Boolean],
-                is_owner: Option[Boolean],
-                is_primary_owner: Option[Boolean],
-                is_restricted: Option[Boolean],
-                is_ultra_restricted: Option[Boolean],
-                has_files: Option[Boolean],
-                is_bot: Option[Boolean],
+                isAdmin: Option[Boolean],
+                isOwner: Option[Boolean],
+                isPrimaryOwner: Option[Boolean],
+                isRestricted: Option[Boolean],
+                isUltraRestricted: Option[Boolean],
+                hasFiles: Option[Boolean],
+                isBot: Option[Boolean],
                 profile: Option[Profile])
 
-case class Profile(first_name: String,
-                   last_name: String,
-                   real_name: String,
+case class Profile(firstName: String,
+                   lastName: String,
+                   realName: String,
                    email: String,
                    skype: String,
                    phone: String)

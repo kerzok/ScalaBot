@@ -14,18 +14,15 @@
  * limitations under the License.
  */
 
-package scalabot.common.web
+package scalabot.slack
 
-import akka.actor.{Actor, ActorRef, ActorSystem}
-import akka.http.scaladsl.model.ws.WebSocketRequest
+import akka.actor.{ActorRef, ActorSystem}
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.ws.{Message, TextMessage}
+import akka.http.scaladsl.model.ws
 import akka.stream._
 import akka.stream.scaladsl.{Flow, GraphDSL, Merge, Sink, Source}
 import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import org.json4s.native.JsonMethods._
-
-import scalabot.slack._
 
 
 /**
@@ -33,24 +30,24 @@ import scalabot.slack._
   */
 case class WebSocket(url: String, sourceRef: ActorRef)(implicit val actorSystem: ActorSystem) {
   implicit val materializer = ActorMaterializer()
-  import actorSystem.dispatcher
   implicit val formats = SlackUpdate.formats
 
-  val webSocketFlow = Http().singleWebSocketRequest(WebSocketRequest(url), flow())
-  def flow(): Flow[Message, Message, _] = {
-    Flow.fromGraph(GraphDSL.create(Source.actorRef[SlackUpdate](100, OverflowStrategy.fail)) {
+  val webSocketFlow = Http().singleWebSocketRequest(ws.WebSocketRequest(url), flow())
+
+  def flow(): Flow[ws.Message, ws.Message, _] = {
+    Flow.fromGraph(GraphDSL.create(Source.actorRef[SlackUpdate](10000, OverflowStrategy.fail)) {
       implicit builder => slackSource =>
         import GraphDSL.Implicits._
 
         val materialization = builder.materializedValue.map(slackServerRef => ConnectionEstablished(slackServerRef))
 
         val merge = builder.add(Merge[SlackUpdate](2))
-        val messageToSlackUpdateFlow = builder.add(Flow[Message].collect {
-          case TextMessage.Strict(text) =>
+        val messageToSlackUpdateFlow = builder.add(Flow[ws.Message].collect {
+          case ws.TextMessage.Strict(text) =>
             parse(text).extract[SlackUpdate]
         })
         val slackUpdateToMessageFlow = builder.add(Flow[SlackUpdate].collect {
-          case update: SlackUpdate => TextMessage.Strict(update.toStringJson)
+          case update: SlackUpdate => ws.TextMessage.Strict(update.toStringJson)
         })
         val closeStage = builder.add(getCloseStage)
 
