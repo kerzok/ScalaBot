@@ -127,6 +127,7 @@ case class TextMessageResponse(id: Int, channel: String, text: String) extends S
 case object Disconnect extends SlackUpdate
 case class ConnectionEstablished(ref: ActorRef) extends SlackUpdate
 case class ReconnectUrl(url: String) extends SlackUpdate
+case class ErrorMessage(error: Error) extends SlackUpdate
 
 case object SlackUpdate {
   implicit lazy val formats = DefaultFormats + SlackUpdateSerializer + MessageSerializer
@@ -150,10 +151,11 @@ case object SlackUpdate {
     jsonType match {
       case jValue@JString("goodbye") => Goodbye
       case jValue@JString("hello") => Hello
-      case jValue@JString("message") => json.removeField(_ == JField("type", jValue)).camelizeKeys.extract[Message]
-      case jValue@JString("team_join") => json.removeField(_ == JField("type", jValue)).camelizeKeys.extract[TeamJoin]
-      case jValue@JString("pong") => json.removeField(_ == JField("type", jValue)).camelizeKeys.extract[Pong]
-      case jValue@JString("reconnect_url") => json.removeField(_ == JField("type", jValue)).camelizeKeys.extract[ReconnectUrl]
+      case jValue@JString("message") => json.camelizeKeys.extract[Message]
+      case jValue@JString("team_join") => json.camelizeKeys.extract[TeamJoin]
+      case jValue@JString("pong") => json.camelizeKeys.extract[Pong]
+      case jValue@JString("reconnect_url") => json.camelizeKeys.extract[ReconnectUrl]
+      case jValue@JString("error") => json.camelizeKeys.extract[ErrorMessage]
       case jValue@JString(messageType) => UnexpectedEvent(messageType)
       case JNothing => json \ "ok" match {
         case JBool(value) => json.camelizeKeys.extract[ResponseMessage]
@@ -166,21 +168,21 @@ case object SlackUpdate {
   def parseMessage(json: JValue): Message = {
     val jsonSubtype = json \ "subtype"
     jsonSubtype match {
-      case jValue@JString("bot_message") => json.removeField(_ == JField("subtype", jValue)).camelizeKeys.extract[BotMessage]
-      case jValue@JString("channel_archive") => json.removeField(_ == JField("subtype", jValue)).camelizeKeys.extract[ChannelArchiveMessage]
-      case jValue@JString("channel_join") => json.removeField(_ == JField("subtype", jValue)).camelizeKeys.extract[ChannelJoinMessage]
-      case jValue@JString("channel_leave") => json.removeField(_ == JField("subtype", jValue)).camelizeKeys.extract[ChannelLeaveMessage]
-      case jValue@JString("channel_name") => json.removeField(_ == JField("subtype", jValue)).camelizeKeys.extract[ChannelNameMessage]
-      case jValue@JString("channel_purpose") => json.removeField(_ == JField("subtype", jValue)).camelizeKeys.extract[ChannelPurposeMessage]
-      case jValue@JString("channel_topic") => json.removeField(_ == JField("subtype", jValue)).camelizeKeys.extract[ChannelTopicMessage]
-      case jValue@JString("channel_unarchive") => json.removeField(_ == JField("subtype", jValue)).camelizeKeys.extract[ChannelUnarchiveMessage]
-      case jValue@JString("group_archive") => json.removeField(_ == JField("subtype", jValue)).camelizeKeys.extract[GroupArchiveMessage]
-      case jValue@JString("group_join") => json.removeField(_ == JField("subtype", jValue)).camelizeKeys.extract[GroupJoinMessage]
-      case jValue@JString("group_leave") => json.removeField(_ == JField("subtype", jValue)).camelizeKeys.extract[GroupLeaveMessage]
-      case jValue@JString("group_name") => json.removeField(_ == JField("subtype", jValue)).camelizeKeys.extract[GroupNameMessage]
-      case jValue@JString("group_purpose") => json.removeField(_ == JField("subtype", jValue)).camelizeKeys.extract[GroupPurposeMessage]
-      case jValue@JString("group_topic") => json.removeField(_ == JField("subtype", jValue)).camelizeKeys.extract[GroupTopicMessage]
-      case jValue@JString("group_unarchive") => json.removeField(_ == JField("subtype", jValue)).camelizeKeys.extract[GroupUnarchiveMessage]
+      case jValue@JString("bot_message") => json.camelizeKeys.extract[BotMessage]
+      case jValue@JString("channel_archive") => json.camelizeKeys.extract[ChannelArchiveMessage]
+      case jValue@JString("channel_join") => json.camelizeKeys.extract[ChannelJoinMessage]
+      case jValue@JString("channel_leave") => json.camelizeKeys.extract[ChannelLeaveMessage]
+      case jValue@JString("channel_name") => json.camelizeKeys.extract[ChannelNameMessage]
+      case jValue@JString("channel_purpose") => json.camelizeKeys.extract[ChannelPurposeMessage]
+      case jValue@JString("channel_topic") => json.camelizeKeys.extract[ChannelTopicMessage]
+      case jValue@JString("channel_unarchive") => json.camelizeKeys.extract[ChannelUnarchiveMessage]
+      case jValue@JString("group_archive") => json.camelizeKeys.extract[GroupArchiveMessage]
+      case jValue@JString("group_join") => json.camelizeKeys.extract[GroupJoinMessage]
+      case jValue@JString("group_leave") => json.camelizeKeys.extract[GroupLeaveMessage]
+      case jValue@JString("group_name") => json.camelizeKeys.extract[GroupNameMessage]
+      case jValue@JString("group_purpose") => json.camelizeKeys.extract[GroupPurposeMessage]
+      case jValue@JString("group_topic") => json.camelizeKeys.extract[GroupTopicMessage]
+      case jValue@JString("group_unarchive") => json.camelizeKeys.extract[GroupUnarchiveMessage]
       case jValue@JString(subtype) => UnexpectedMessage(subtype)
       case JNothing => json.camelizeKeys.extract[TextMessage]
       case _ => UnexpectedMessage("undefined", Some(write(json)))
