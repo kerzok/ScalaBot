@@ -51,7 +51,140 @@ case class Chat(id: Long,
                 first_name: Option[String] = None,
                 last_name: Option[String] = None)
 
-case class Message(message_id: Long,
+class Message(messageId: Long,
+              from: User,
+              date: Long,
+              chat: Chat,
+              forwardFrom: Option[User] = None,
+              forwardDate: Option[Long] = None,
+              replyToMessage: Option[Message] = None)
+
+case class TextMessage(messageId: Long,
+                       from: User,
+                       date: Long,
+                       chat: Chat,
+                       forwardFrom: Option[User] = None,
+                       forwardDate: Option[Long] = None,
+                       replyToMessage: Option[Message] = None,
+                       text: String) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
+
+case class EntitiesMessage(messageId: Long,
+                           from: User,
+                           date: Long,
+                           chat: Chat,
+                           forwardFrom: Option[User] = None,
+                           forwardDate: Option[Long] = None,
+                           replyToMessage: Option[Message] = None,
+                           entities: Seq[MessageEntity]) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
+
+case class AudioMessage(messageId: Long,
+                        from: User,
+                        date: Long,
+                        chat: Chat,
+                        forwardFrom: Option[User] = None,
+                        forwardDate: Option[Long] = None,
+                        replyToMessage: Option[Message] = None,
+                        audio: Audio) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
+
+case class DocumentMessage(messageId: Long,
+                           from: User,
+                           date: Long,
+                           chat: Chat,
+                           forwardFrom: Option[User] = None,
+                           forwardDate: Option[Long] = None,
+                           replyToMessage: Option[Message] = None,
+                           document: Document) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
+
+case class StickerMessage(messageId: Long,
+                          from: User,
+                          date: Long,
+                          chat: Chat,
+                          forwardFrom: Option[User] = None,
+                          forwardDate: Option[Long] = None,
+                          replyToMessage: Option[Message] = None,
+                          sticker: Sticker) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
+
+case class VideoMessage(messageId: Long,
+                        from: User,
+                        date: Long,
+                        chat: Chat,
+                        forwardFrom: Option[User] = None,
+                        forwardDate: Option[Long] = None,
+                        replyToMessage: Option[Message] = None,
+                        video: Video) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
+
+case class VoiceMessage(messageId: Long,
+                        from: User,
+                        date: Long,
+                        chat: Chat,
+                        forwardFrom: Option[User] = None,
+                        forwardDate: Option[Long] = None,
+                        replyToMessage: Option[Message] = None,
+                        voice: Voice) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
+
+case class CaptionMessage(messageId: Long,
+                          from: User,
+                          date: Long,
+                          chat: Chat,
+                          forwardFrom: Option[User] = None,
+                          forwardDate: Option[Long] = None,
+                          replyToMessage: Option[Message] = None,
+                          caption: String) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
+
+case class ContactMessage(messageId: Long,
+                          from: User,
+                          date: Long,
+                          chat: Chat,
+                          forwardFrom: Option[User] = None,
+                          forwardDate: Option[Long] = None,
+                          replyToMessage: Option[Message] = None,
+                          contact: Contact) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
+
+case class LocationMessage(messageId: Long,
+                           from: User,
+                           date: Long,
+                           chat: Chat,
+                           forwardFrom: Option[User] = None,
+                           forwardDate: Option[Long] = None,
+                           replyToMessage: Option[Message] = None,
+                           location: Location) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
+
+case class VenueMessage(messageId: Long,
+                        from: User,
+                        date: Long,
+                        chat: Chat,
+                        forwardFrom: Option[User] = None,
+                        forwardDate: Option[Long] = None,
+                        replyToMessage: Option[Message] = None,
+                        venue: Venue) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
+
+case class NewChatMemberMessage(messageId: Long,
+                                from: User,
+                                date: Long,
+                                chat: Chat,
+                                forwardFrom: Option[User] = None,
+                                forwardDate: Option[Long] = None,
+                                replyToMessage: Option[Message] = None,
+                                user: User) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
+
+case class LeftChatMemberMessage(messageId: Long,
+                                 from: User,
+                                 date: Long,
+                                 chat: Chat,
+                                 forwardFrom: Option[User] = None,
+                                 forwardDate: Option[Long] = None,
+                                 replyToMessage: Option[Message] = None,
+                                 user: User) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
+
+case class UndefinedMessage(messageId: Long,
+                            from: User,
+                            date: Long,
+                            chat: Chat,
+                            forwardFrom: Option[User] = None,
+                            forwardDate: Option[Long] = None,
+                            replyToMessage: Option[Message] = None) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
+
+case class OldMessage(message_id: Long,
                    from: User,
                    date: Long,
                    chat: Chat,
@@ -190,7 +323,7 @@ case class InputTextMessageContent(message_text: String,
                                    disable_web_page_preview: Option[Boolean] = None) extends InlineQueryResult
 
 case class Update(update_id: Long,
-                  message: Option[Message] = None,
+                  message: Option[OldMessage] = None,
                   inline_query: Option[InlineQuery] = None,
                   chosen_inline_result: Option[ChosenInlineResult] = None,
                   callback_query: Option[CallbackQuery] = None) extends SourceMessage

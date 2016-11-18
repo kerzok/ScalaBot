@@ -82,7 +82,7 @@ class TelegramSource(config: Config) extends common.Source {
 
   }
 
-  private def getChat(message: telegram.Message): common.chat.Chat = message.chat.`type` match {
+  private def getChat(message: telegram.OldMessage): common.chat.Chat = message.chat.`type` match {
     case ChatType.`private` => common.chat.UserChat(message.chat.id.toString, sourceType, getUser(message.from))
     case _ =>
       val user = getUser(message.from)
