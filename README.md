@@ -3,6 +3,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![CircleCI](https://img.shields.io/circleci/project/kerzok/ScalaBot.svg?style=svg)](https://circleci.com/gh/kerzok/ScalaBot)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/118c4444970941f093da8874648b4c6e)](https://www.codacy.com/app/kerzok11/ScalaBot?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=kerzok/ScalaBot&amp;utm_campaign=Badge_Grade)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.kerzok/scalabotapi_2.11/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.kerzok/scalabotapi_2.11)
 
 This is simple framework for easy develop bots in [FSM](https://en.wikipedia.org/wiki/Finite-state_machine) style on Scala language based on [Akka](http://akka.io/).
 For now it's support **Slack**, **Skype** and **Telegram** messengers.
