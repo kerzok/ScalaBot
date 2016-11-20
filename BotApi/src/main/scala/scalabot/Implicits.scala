@@ -29,23 +29,23 @@ import scalabot.skype.ActivityType
   * Created by Nikolay.Smelik on 7/11/2016.
   */
 object Implicits {
-  implicit val formats = {
-    DefaultFormats + new EnumNameSerializer(telegram.ChatType) +
-      new EnumNameSerializer(telegram.MessageEntityType) +
-      new EnumNameSerializer(ActivityType)
-  }
 
-  implicit val telegramUpdateFromEntityUnmarsheller: FromEntityUnmarshaller[telegram.Update] =
+  implicit val telegramUpdateFromEntityUnmarsheller: FromEntityUnmarshaller[telegram.Update] = {
+    implicit val formats = telegram.TelegramUpdate.formats
     Unmarshaller.withMaterializer {
       implicit ex => implicit mat => entity: HttpEntity =>
         entity.dataBytes.runFold(ByteString.empty)(_ ++ _)
-          .map(_.utf8String).map(parse(_).extract[telegram.Update])
+          .map(
+            _.utf8String).map(parse(_).camelizeKeys.extract[telegram.Update])
     }
+  }
 
-  implicit val skypeUpdateFromEntityUnmarshaller: FromEntityUnmarshaller[Seq[skype.Update]] =
+  implicit val skypeUpdateFromEntityUnmarshaller: FromEntityUnmarshaller[Seq[skype.Update]] = {
+    implicit val formats = DefaultFormats + new EnumNameSerializer(ActivityType)
     Unmarshaller.withMaterializer {
-      implicit  ex => implicit mat => entity: HttpEntity =>
+      implicit ex => implicit mat => entity: HttpEntity =>
         entity.dataBytes.runFold(ByteString.empty)(_ ++ _)
-            .map(_.utf8String).map(parse(_).extract[Seq[skype.Update]])
+          .map(_.utf8String).map(parse(_).extract[Seq[skype.Update]])
     }
+  }
 }

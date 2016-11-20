@@ -16,13 +16,15 @@
 
 package scalabot.common.extensions
 
+import org.json4s.DefaultFormats
 import org.json4s.native.JsonMethods._
-import scalabot.Implicits._
+
 import scalabot.common.chat.Chat
 import scalabot.common.message.Intent
 import spray.client.pipelining._
 import spray.http._
 import spray.caching.{Cache, LruCache}
+
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits._
 import scala.concurrent.Future
@@ -30,8 +32,10 @@ import scala.concurrent.Future
   * Created by Nikolay.Smelik on 8/3/2016.
   */
 trait SocketExtension extends BotExtension {
+  implicit private val formats = DefaultFormats
   val cache: Cache[Any] = LruCache(timeToLive = cacheExpiration)
   val pipeline: HttpRequest => Future[HttpResponse] = sendReceive
+
 
   def cacheExpiration: Duration = 1 day
   final def makeRequest[T](intent: SocketIntent)(implicit manifest: Manifest[T]): Unit = {

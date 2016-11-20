@@ -19,9 +19,11 @@ package scalabot.skype
 import akka.actor.{ActorRef, ActorSystem}
 import akka.http.scaladsl.server.Directives._
 import com.typesafe.config.Config
-import org.json4s.Extraction
+import org.json4s.{DefaultFormats, Extraction}
 import org.json4s.native.JsonMethods._
 import akka.http.scaladsl.model.StatusCodes
+import org.json4s.ext.EnumNameSerializer
+
 import scalabot.Implicits._
 import scalabot.common.ApiClient
 import scalabot.common.message.incoming.SourceMessage
@@ -41,6 +43,7 @@ import scalabot.common.web.AddRoute
   * Created by Nikolay.Smelik on 7/11/2016.
   */
 class SkypeSource(config: Config) extends common.Source {
+  implicit val formats = DefaultFormats + new EnumNameSerializer(ActivityType)
   override val id: String = Try(config.getString("id")).toOption getOrElse (throw new IllegalArgumentException("Skype id is not defined in config"))
   val clientSecret: String = Try(config.getString("secret")).toOption getOrElse (throw new IllegalArgumentException("Skype secret is not defined in config"))
   override val sourceType: String = getClass.getSimpleName

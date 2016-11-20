@@ -16,181 +16,103 @@
 
 package scalabot.telegram
 
+import org.json4s.JsonAST.JString
+import org.json4s.ext.EnumNameSerializer
+import org.json4s.{CustomSerializer, DefaultFormats, Extraction, JValue}
+import org.json4s._
 import scalabot.common.message.incoming.SourceMessage
-import scalabot.telegram.ChatType.ChatType
+import scalabot.telegram
 import scalabot.telegram.MessageEntityType.MessageEntityType
 
 /**
   * Created by Nikolay.Smelik on 7/5/2016.
   */
 
-
-object ChatType extends Enumeration {
-  type ChatType = Value
-  val `private`, group, supergroup, channel = Value
-}
-
-object MessageEntityType extends Enumeration {
-  type MessageEntityType = Value
-  val mention, hashtag, bot_command, url, email, bold, italic, code, pre, text_link = Value
-}
-
 case class TelegramObject[T](ok: Boolean,
                              result: T)
 
+object MessageEntityType extends Enumeration {
+  type MessageEntityType = Value
+  val mention, hashTag, botCommand, url, email, bold, italic, code, pre, textLink = Value
+}
+
 
 case class User(id: Long,
-                first_name: String,
-                last_name: Option[String] = None,
+                firstName: String,
+                lastName: Option[String] = None,
                 username: Option[String] = None)
 
-case class Chat(id: Long,
-                `type`: ChatType,
-                title: Option[String] = None,
-                username: Option[String] = None,
-                first_name: Option[String] = None,
-                last_name: Option[String] = None)
+sealed trait Chat {
+  val id: Long
+}
 
-class Message(messageId: Long,
-              from: User,
-              date: Long,
-              chat: Chat,
-              forwardFrom: Option[User] = None,
-              forwardDate: Option[Long] = None,
-              replyToMessage: Option[Message] = None)
+case class PrivateChat(id: Long,
+                       firstName: String,
+                       lastName: String,
+                       username: Option[String] = None) extends Chat
 
-case class TextMessage(messageId: Long,
-                       from: User,
-                       date: Long,
-                       chat: Chat,
-                       forwardFrom: Option[User] = None,
-                       forwardDate: Option[Long] = None,
-                       replyToMessage: Option[Message] = None,
-                       text: String) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
+case class GroupChat(id: Long,
+                     title: String) extends Chat
 
-case class EntitiesMessage(messageId: Long,
-                           from: User,
-                           date: Long,
-                           chat: Chat,
-                           forwardFrom: Option[User] = None,
-                           forwardDate: Option[Long] = None,
-                           replyToMessage: Option[Message] = None,
-                           entities: Seq[MessageEntity]) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
+case class SuperGroupChat(id: Long,
+                          title: String) extends Chat
 
-case class AudioMessage(messageId: Long,
-                        from: User,
-                        date: Long,
-                        chat: Chat,
-                        forwardFrom: Option[User] = None,
-                        forwardDate: Option[Long] = None,
-                        replyToMessage: Option[Message] = None,
-                        audio: Audio) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
+case class ChannelChat(id: Long,
+                       title: String,
+                       username: Option[String] = None) extends Chat
 
-case class DocumentMessage(messageId: Long,
-                           from: User,
-                           date: Long,
-                           chat: Chat,
-                           forwardFrom: Option[User] = None,
-                           forwardDate: Option[Long] = None,
-                           replyToMessage: Option[Message] = None,
-                           document: Document) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
+case object TelegramUpdate {
+  implicit val formats = DefaultFormats +
+    MessageEntitySerializer +
+    ChatSerializer +
+    new EnumNameSerializer(telegram.MessageEntityType)
 
-case class StickerMessage(messageId: Long,
-                          from: User,
-                          date: Long,
-                          chat: Chat,
-                          forwardFrom: Option[User] = None,
-                          forwardDate: Option[Long] = None,
-                          replyToMessage: Option[Message] = None,
-                          sticker: Sticker) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
+  object MessageEntitySerializer extends CustomSerializer[MessageEntity](format => ( {
+    case json: JValue => parseMessageEntity(json)
+  }, {
+    case messageEntity: MessageEntity => Extraction.decompose(messageEntity)
+  }))
 
-case class VideoMessage(messageId: Long,
-                        from: User,
-                        date: Long,
-                        chat: Chat,
-                        forwardFrom: Option[User] = None,
-                        forwardDate: Option[Long] = None,
-                        replyToMessage: Option[Message] = None,
-                        video: Video) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
+  object ChatSerializer extends CustomSerializer[Chat](format => ( {
+    case json: JValue => parseChat(json)
+  }, {
+    case chat: Chat => Extraction.decompose(chat)
+  }))
 
-case class VoiceMessage(messageId: Long,
-                        from: User,
-                        date: Long,
-                        chat: Chat,
-                        forwardFrom: Option[User] = None,
-                        forwardDate: Option[Long] = None,
-                        replyToMessage: Option[Message] = None,
-                        voice: Voice) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
+  def parseChat(json: JValue): Chat = {
+    val jsonType = json \ "type"
+    jsonType match {
+      case JString("private") => json.camelizeKeys.extract[PrivateChat]
+      case JString("group") => json.camelizeKeys.extract[GroupChat]
+      case JString("supergroup") => json.camelizeKeys.extract[SuperGroupChat]
+      case JString("channel") => json.camelizeKeys.extract[ChannelChat]
+    }
+  }
 
-case class CaptionMessage(messageId: Long,
-                          from: User,
-                          date: Long,
-                          chat: Chat,
-                          forwardFrom: Option[User] = None,
-                          forwardDate: Option[Long] = None,
-                          replyToMessage: Option[Message] = None,
-                          caption: String) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
+  def parseMessageEntity(json: JValue): MessageEntity = {
+    val jsonType = json \ "type"
+    jsonType match {
+      case JString("mention") => MessageEntity(MessageEntityType.mention, json)
+      case JString("hashtag") => MessageEntity(MessageEntityType.hashTag, json)
+      case JString("bot_command") => MessageEntity(MessageEntityType.botCommand, json)
+      case JString("url") => MessageEntity(MessageEntityType.url, json)
+      case JString("email") => MessageEntity(MessageEntityType.email, json)
+      case JString("bold") => MessageEntity(MessageEntityType.bold, json)
+      case JString("italic") => MessageEntity(MessageEntityType.italic, json)
+      case JString("code") => MessageEntity(MessageEntityType.code, json)
+      case JString("pre") => MessageEntity(MessageEntityType.pre, json)
+      case JString("text_link") => MessageEntity(MessageEntityType.textLink, json)
+    }
+  }
+}
 
-case class ContactMessage(messageId: Long,
-                          from: User,
-                          date: Long,
-                          chat: Chat,
-                          forwardFrom: Option[User] = None,
-                          forwardDate: Option[Long] = None,
-                          replyToMessage: Option[Message] = None,
-                          contact: Contact) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
-
-case class LocationMessage(messageId: Long,
-                           from: User,
-                           date: Long,
-                           chat: Chat,
-                           forwardFrom: Option[User] = None,
-                           forwardDate: Option[Long] = None,
-                           replyToMessage: Option[Message] = None,
-                           location: Location) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
-
-case class VenueMessage(messageId: Long,
-                        from: User,
-                        date: Long,
-                        chat: Chat,
-                        forwardFrom: Option[User] = None,
-                        forwardDate: Option[Long] = None,
-                        replyToMessage: Option[Message] = None,
-                        venue: Venue) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
-
-case class NewChatMemberMessage(messageId: Long,
-                                from: User,
-                                date: Long,
-                                chat: Chat,
-                                forwardFrom: Option[User] = None,
-                                forwardDate: Option[Long] = None,
-                                replyToMessage: Option[Message] = None,
-                                user: User) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
-
-case class LeftChatMemberMessage(messageId: Long,
-                                 from: User,
-                                 date: Long,
-                                 chat: Chat,
-                                 forwardFrom: Option[User] = None,
-                                 forwardDate: Option[Long] = None,
-                                 replyToMessage: Option[Message] = None,
-                                 user: User) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
-
-case class UndefinedMessage(messageId: Long,
-                            from: User,
-                            date: Long,
-                            chat: Chat,
-                            forwardFrom: Option[User] = None,
-                            forwardDate: Option[Long] = None,
-                            replyToMessage: Option[Message] = None) extends Message(messageId, from, date, chat, forwardFrom, forwardDate, replyToMessage)
-
-case class OldMessage(message_id: Long,
+case class Message(messageId: Long,
                    from: User,
                    date: Long,
                    chat: Chat,
-                   forward_from: Option[User] = None,
-                   forward_date: Option[Long] = None,
-                   reply_to_message: Option[Message] = None,
+                   forwardFrom: Option[User] = None,
+                   forwardDate: Option[Long] = None,
+                   replyToMessage: Option[Message] = None,
                    text: Option[String] = None,
                    entities: Option[Seq[MessageEntity]] = None,
                    audio: Option[Audio] = None,
@@ -203,66 +125,68 @@ case class OldMessage(message_id: Long,
                    contact: Option[Contact] = None,
                    location: Option[Location] = None,
                    venue: Option[Venue] = None,
-                   new_chat_member: Option[User] = None,
-                   left_chat_member: Option[User] = None,
-                   new_chat_title: Option[String] = None,
-                   new_chat_photo: Option[Array[PhotoSize]] = None,
-                   delete_chat_photo: Option[Boolean] = None,
-                   group_chat_created: Option[Boolean] = None,
-                   supergroup_chat_created: Option[Boolean] = None,
-                   channel_chat_created: Option[Boolean] = None,
-                   migrate_to_chat_id: Option[Long] = None,
-                   migrate_from_chat_id: Option[Long] = None,
-                   pinned_message: Option[Message] = None) {
+                   newChatMember: Option[User] = None,
+                   leftChatMember: Option[User] = None) {
   def sender = chat.id
 }
 
-case class MessageEntity(`type`: MessageEntityType,
+case class MessageEntity(entityType: MessageEntityType,
                          offset: Long,
                          length: Long,
                          url: Option[String] = None)
 
-case class PhotoSize(file_id: String,
+case object MessageEntity {
+  private implicit val formats = DefaultFormats
+  def apply(messageEntityType: MessageEntityType, json: JValue) = {
+    new MessageEntity(
+      messageEntityType, (json \ "offset").extract[Long],
+      (json \ "length").extract[Long],
+      (json \ "url").extractOpt[String]
+    )
+  }
+}
+
+case class PhotoSize(fileId: String,
                      width: Long,
                      height: Long,
-                     file_size: Option[Long] = None)
+                     fileSize: Option[Long] = None)
 
-case class Audio(file_id: String,
+case class Audio(fileId: String,
                  duration: Long,
                  performer: Option[String] = None,
                  title: Option[String] = None,
-                 mime_type: Option[String] = None,
-                 file_size: Option[Long] = None)
+                 mimeType: Option[String] = None,
+                 fileSize: Option[Long] = None)
 
-case class Document(file_id: String,
+case class Document(fileId: String,
                     thumb: Option[PhotoSize] = None,
-                    file_name: Option[String] = None,
-                    mime_type: Option[String] = None,
-                    file_size: Option[Long] = None)
+                    fileName: Option[String] = None,
+                    mimeType: Option[String] = None,
+                    fileSize: Option[Long] = None)
 
-case class Sticker(file_id: String,
+case class Sticker(fileId: String,
                    width: Long,
                    height: Long,
                    thumb: Option[PhotoSize] = None,
-                   file_size: Option[Long] = None)
+                   fileSize: Option[Long] = None)
 
-case class Video(file_id: String,
+case class Video(fileId: String,
                  width: Long,
                  height: Long,
                  duration: Long,
                  thumb: Option[PhotoSize] = None,
-                 mime_type: Option[String] = None,
-                 file_size: Option[Long] = None)
+                 mimeType: Option[String] = None,
+                 fileSize: Option[Long] = None)
 
-case class Voice(file_id: String,
+case class Voice(fileId: String,
                  duration: Long,
-                 mime_type: Option[String] = None,
-                 file_size: Option[Long] = None)
+                 mimeType: Option[String] = None,
+                 fileSize: Option[Long] = None)
 
-case class Contact(phone_number: String,
-                   first_name: String,
-                   last_name: Option[String] = None,
-                   user_id: Option[Long] = None)
+case class Contact(phoneNumber: String,
+                   firstName: String,
+                   lastName: Option[String] = None,
+                   userId: Option[Long] = None)
 
 case class Location(longitude: Float,
                     latitude: Float)
@@ -270,38 +194,38 @@ case class Location(longitude: Float,
 case class Venue(location: Location,
                  title: String,
                  address: String,
-                 foursquare_id: Option[String] = None)
+                 foursquareId: Option[String] = None)
 
-case class UserProfilePhotos(total_count: Long,
+case class UserProfilePhotos(totalCount: Long,
                              photos: Seq[Seq[PhotoSize]])
 
-case class File(file_id: String,
-                file_size: Option[Long] = None,
-                file_path: Option[String] = None)
+case class File(fileId: String,
+                fileSize: Option[Long] = None,
+                filePath: Option[String] = None)
 
 case class ReplyKeyboardMarkup(keyboard: Seq[Seq[KeyboardButton]],
-                               resize_keyboard: Option[Boolean] = None,
-                               one_time_keyboard: Option[Boolean] = None,
+                               resizeKeyboard: Option[Boolean] = None,
+                               oneTimeKeyboard: Option[Boolean] = None,
                                selective: Option[Boolean] = None)
 
 case class KeyboardButton(text: String,
-                          request_contact: Option[Boolean] = None,
-                          request_location: Option[Boolean] = None)
+                          requestContact: Option[Boolean] = None,
+                          requestLocation: Option[Boolean] = None)
 
-case class ReplyKeyboardHide(hide_keyboard: Boolean,
+case class ReplyKeyboardHide(hideKeyboard: Boolean,
                              selective: Option[Boolean] = None)
 
-case class InlineKeyboardMarkup(inline_keyboard: Seq[Seq[InlineKeyboardMarkup]])
+case class InlineKeyboardMarkup(inlineKeyboard: Seq[Seq[InlineKeyboardMarkup]])
 
 case class InlineKeyboardButton(text: String,
                                 url: Option[String],
-                                callback_data: Option[String],
-                                switch_inline_query: Option[String])
+                                callbackData: Option[String],
+                                switchInlineQuery: Option[String])
 
 case class CallbackQuery(id: String,
                          from: User,
                          message: Option[Message] = None,
-                         inline_message_id: Option[String] = None,
+                         inlineMessageId: Option[String] = None,
                          data: Option[String] = None)
 
 case class InlineQuery(id: String,
@@ -310,20 +234,20 @@ case class InlineQuery(id: String,
                        query: String,
                        offset: String)
 
-case class ChosenInlineResult(result_id: String,
+case class ChosenInlineResult(resultId: String,
                               from: User,
                               location: Option[Location] = None,
-                              inline_message_id: Option[String] = None,
+                              inlineMessageId: Option[String] = None,
                               query: String)
 
 trait InlineQueryResult
 
 case class InputTextMessageContent(message_text: String,
-                                   parse_mode: Option[String] = None,
-                                   disable_web_page_preview: Option[Boolean] = None) extends InlineQueryResult
+                                   parseMode: Option[String] = None,
+                                   disableWebPagePreview: Option[Boolean] = None) extends InlineQueryResult
 
-case class Update(update_id: Long,
-                  message: Option[OldMessage] = None,
-                  inline_query: Option[InlineQuery] = None,
-                  chosen_inline_result: Option[ChosenInlineResult] = None,
-                  callback_query: Option[CallbackQuery] = None) extends SourceMessage
+case class Update(updateId: Long,
+                  message: Option[Message] = None,
+                  inlineQuery: Option[InlineQuery] = None,
+                  chosenInlineResult: Option[ChosenInlineResult] = None,
+                  callbackQuery: Option[CallbackQuery] = None) extends SourceMessage

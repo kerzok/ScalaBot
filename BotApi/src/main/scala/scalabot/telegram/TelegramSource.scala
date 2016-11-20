@@ -40,6 +40,7 @@ class TelegramSource(config: Config) extends common.Source {
   override val id: String = Try(config.getString("id")).toOption getOrElse(throw new IllegalArgumentException("Telegram id is not defined in config"))
   override val sourceType: String = getClass.getSimpleName
   private val client: TelegramApiClient = TelegramApiClient(id)(context.system)
+  implicit val formats = TelegramUpdate.formats
 
   val pathToWebhook = path("telegram" / Remaining) {
     botId => pathEnd {
@@ -82,15 +83,22 @@ class TelegramSource(config: Config) extends common.Source {
 
   }
 
-  private def getChat(message: telegram.OldMessage): common.chat.Chat = message.chat.`type` match {
-    case ChatType.`private` => common.chat.UserChat(message.chat.id.toString, sourceType, getUser(message.from))
-    case _ =>
+  private def getChat(message: telegram.Message): common.chat.Chat = message.chat match {
+    case PrivateChat(chatId, firstName, lastName, username) =>
+      common.chat.UserChat(chatId.toString, sourceType, getUser(message.from))
+    case GroupChat(chatId, title) =>
       val user = getUser(message.from)
-      common.chat.GroupChat(message.chat.id.toString, sourceType, user, message.chat.title, Seq(user))
+      common.chat.GroupChat(chatId.toString, sourceType, user, Some(title), Seq(user))
+    case SuperGroupChat(chatId, title) =>
+      val user = getUser(message.from)
+      common.chat.GroupChat(chatId.toString, sourceType, user, Some(title), Seq(user))
+    case ChannelChat(chatId, title, username) =>
+      val user = getUser(message.from)
+      common.chat.GroupChat(chatId.toString, sourceType, user, Some(title), Seq(user))
   }
 
   private def getUser(user: User): common.chat.User =
-    common.chat.User(user.first_name + " " + user.last_name.getOrElse(""), user.username)
+    common.chat.User(user.firstName + " " + user.lastName.getOrElse(""), user.username)
 
   private final case class TelegramApiClient(private val id: String)
                                             (override implicit val actorSystem: ActorSystem) extends ApiClient {

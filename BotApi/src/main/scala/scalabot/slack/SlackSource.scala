@@ -103,6 +103,7 @@ class SlackSource(config: Config) extends common.Source with ActorLogging {
       messageStorage.values.foreach(throttler ! _)
       runPingPong()
       context.unbecome()
+    case _ =>
   }
 
   override protected def handleUpdate[T <: SourceMessage](update: T): Unit = update match {
